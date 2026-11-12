@@ -10,7 +10,7 @@
 </head>
 <body><main>
 <h1>Парсер публичных постов ВК</h1>
-<div class="sub">Версия 1.1 · приложение 54892559 · сбор через VK Bridge · данные сохраняются в CSV только по вашему нажатию</div>
+<div class="sub">Версия 1.2 · приложение 54892559 · сбор через VK Bridge · выгрузка CSV или отправка результатов в закрытый GitHub</div>
 <section class="panel"><h2>1. Источники</h2>
 <label for="sources">Ссылки на публичные страницы и сообщества, по одной на строку</label>
 <textarea id="sources" spellcheck="false">https://vk.ru/irina_na_smene
@@ -23,9 +23,17 @@ https://vk.ru/club241887015</textarea>
 <div class="hint">Принимаются vk.ru, vk.com, m.vk.com, короткие имена, club123, public123 и id123. Клип-ссылки здесь не обрабатываются — это парсер стен.</div>
 <div class="grid"><div><label for="limit">Сколько постов с каждого источника</label><select id="limit"><option value="20">20</option><option value="100" selected>100</option><option value="500">500</option><option value="1000">1 000</option><option value="5000">5 000 (долгий сбор)</option></select></div><div><label for="delay">Пауза между запросами</label><select id="delay"><option value="450">0,45 секунды</option><option value="700" selected>0,7 секунды</option><option value="1200">1,2 секунды</option></select></div></div>
 <div class="grid"><div><label><input type="checkbox" id="withComments" style="width:auto;margin-right:7px">Собирать комментарии и ответы</label><div class="hint">Сбор комментариев выполняется после загрузки постов каждого источника.</div></div><div><label for="commentPosts">Сколько постов источника проверять на комментарии</label><select id="commentPosts"><option value="10" selected>10 последних</option><option value="25">25 последних</option><option value="50">50 последних</option></select></div></div><div class="grid"><div><label for="commentLimit">Корневых комментариев на один пост</label><select id="commentLimit"><option value="20" selected>20</option><option value="50">50</option><option value="100">100</option></select></div><div><div class="hint">Ответы: до 10 из каждой ветки (если доступны). Большие ветки могут быть неполными. Данные не включают удалённые или закрытые комментарии.</div></div></div><div class="actions"><button id="start">Получить доступ и собрать посты</button><button id="stop" class="danger" disabled>Остановить</button><button id="export" class="secondary" disabled>Скачать CSV постов</button><button id="exportComments" class="secondary" disabled>Скачать CSV комментариев</button></div>
-<p class="small">Токен остаётся в памяти страницы, не выводится в интерфейсе, не сохраняется в GitHub или CSV. Доступ к закрытым публикациям не запрашивается.</p></section>
-<section class="panel"><h2>2. Выполнение</h2><progress id="progress" max="1" value="0"></progress><div class="stats" id="counter">Пока ничего не собрано</div><div class="status" id="status" role="status">Нажмите «Получить доступ и собрать посты» внутри приложения ВКонтакте.</div><div class="small" id="errors"></div><div class="stats" id="commentCounter">Комментариев: 0</div></section>
-<section class="panel"><h2>3. Предпросмотр <span class="pill" id="rows">0 записей</span></h2><div class="table-wrap"><table><thead><tr><th>Дата</th><th>Источник</th><th>Текст поста</th><th>Лайки</th><th>Просмотры</th><th>Ссылка</th></tr></thead><tbody id="preview"><tr><td colspan="6">Данных пока нет</td></tr></tbody></table></div><p class="hint">CSV содержит полные тексты, ссылки, даты, статистику, тип публикации, вложения и идентификаторы. В таблице показаны первые 30 постов.</p></section>
+<p class="small">Токен ВК остаётся в памяти страницы и никогда не отправляется в GitHub. Доступ к закрытым публикациям не запрашивается.</p></section>
+<section class="panel"><h2>2. Автоматическая передача результатов для анализа</h2>
+<label><input type="checkbox" id="syncEnabled" style="width:auto;margin-right:7px">После сбора отправлять результаты в закрытый GitHub</label>
+<div class="grid">
+<div><label for="syncRepo">Закрытый репозиторий (владелец/название)</label><input id="syncRepo" placeholder="nser9444-lang/vk-parser-data" autocomplete="off"></div>
+<div><label for="syncToken">GitHub Fine-grained token (Contents: Read and write)</label><input id="syncToken" type="password" placeholder="Вставьте токен только здесь" autocomplete="off" spellcheck="false"></div>
+</div>
+<p class="hint">Создайте отдельный <b>Private</b> репозиторий. Для токена выберите доступ только к нему и разрешение Contents: Read and write. Токен не сохраняется в браузере, GitHub или CSV. Не отправляйте его в чат. Встроенная проверка не позволит загружать данные в публичный репозиторий.</p>
+<div id="syncStatus" class="status">Передача отключена. Вы по-прежнему можете скачивать CSV вручную.</div></section>
+<section class="panel"><h2>3. Выполнение</h2><progress id="progress" max="1" value="0"></progress><div class="stats" id="counter">Пока ничего не собрано</div><div class="status" id="status" role="status">Нажмите «Получить доступ и собрать посты» внутри приложения ВКонтакте.</div><div class="small" id="errors"></div><div class="stats" id="commentCounter">Комментариев: 0</div></section>
+<section class="panel"><h2>4. Предпросмотр <span class="pill" id="rows">0 записей</span></h2><div class="table-wrap"><table><thead><tr><th>Дата</th><th>Источник</th><th>Текст поста</th><th>Лайки</th><th>Просмотры</th><th>Ссылка</th></tr></thead><tbody id="preview"><tr><td colspan="6">Данных пока нет</td></tr></tbody></table></div><p class="hint">CSV содержит полные тексты, ссылки, даты, статистику, тип публикации, вложения и идентификаторы. В таблице показаны первые 30 постов.</p></section>
 </main>
 <script>
 'use strict';
@@ -102,6 +110,51 @@ downloadComments.addEventListener('click',()=>{
  a.href=url;a.download='vk_comments_'+new Date().toISOString().slice(0,10)+'.csv';
  document.body.append(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),1000);
 });
+
+// Один токен действует только во время текущего запуска страницы.
+async function githubRequest(url,token,opts={}){
+ const res=await fetch(url,{...opts,headers:{'Accept':'application/vnd.github+json','Authorization':'Bearer '+token,'X-GitHub-Api-Version':'2022-11-28',...(opts.headers||{})},cache:'no-store'});
+ const data=await res.json().catch(()=>({}));
+ if(!res.ok)throw Error('GitHub HTTP '+res.status+': '+(data.message||'Неизвестная ошибка'));
+ return data;
+}
+function encodeUTF8Base64(value){
+ const bytes=new TextEncoder().encode(value);
+ let binary='';
+ for(let i=0;i<bytes.length;i+=8192)binary+=String.fromCharCode(...bytes.subarray(i,i+8192));
+ return btoa(binary);
+}
+async function githubSaveResults(){
+ const repo=$('syncRepo').value.trim(),ghToken=$('syncToken').value.trim(),syncStatus=$('syncStatus');
+ if(!/^[a-zA-Z0-9_.-]+\/[a-zA-Z0-9_.-]+$/.test(repo))throw Error('Укажите репозиторий в формате владелец/название');
+ if(!ghToken)throw Error('Введите временный GitHub токен в настройках передачи');
+ const base='https://api.github.com/repos/'+repo;
+ syncStatus.textContent='Проверяем, что репозиторий закрытый...';
+ const info=await githubRequest(base,ghToken);
+ if(info.private!==true)throw Error('Загрузка запрещена: репозиторий не закрытый (Private).');
+ if(info.permissions?.push===false)throw Error('У токена нет прав записи в репозиторий.');
+ const stamp=new Date().toISOString().replace(/[:.]/g,'-');
+ const runDir='vk-research/'+stamp;
+ // Дробим выгрузку для снижения размеров запросов и надёжного восстановления.
+ const jobs=[];
+ for(const [kind,arr] of [['posts',records],['comments',commentsRecords]]){
+  for(let i=0;i<arr.length;i+=100){
+   jobs.push({path:runDir+'/'+kind+'_'+String(i/100+1).padStart(4,'0')+'.json',
+    payload:JSON.stringify({kind,created_at:new Date().toISOString(),count:Math.min(100,arr.length-i),items:arr.slice(i,i+100)},null,2)});
+  }
+ }
+ jobs.push({path:runDir+'/summary.json',payload:JSON.stringify({created_at:new Date().toISOString(),posts:records.length,comments:commentsRecords.length,errors:problemList,sources:$('sources').value.split(/\r?\n/).filter(Boolean)},null,2)});
+ let completed=0;
+ for(const job of jobs){
+  syncStatus.textContent='Передача в закрытый GitHub: '+completed+'/'+jobs.length+' файлов';
+  const url=base+'/contents/'+job.path.split('/').map(encodeURIComponent).join('/');
+  await githubRequest(url,ghToken,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({message:'VK research export '+stamp+' '+job.path.split('/').at(-1),content:encodeUTF8Base64(job.payload)})});
+  completed++;
+ }
+ syncStatus.textContent='Успешно передано '+completed+' файлов в '+repo+' / '+runDir+'. Теперь можно попросить ChatGPT проанализировать последнюю выгрузку из этого репозитория.';
+ return runDir;
+}
+
 stop.addEventListener('click',()=>{stopRequested=true;status.textContent+='\nОстановка после текущего запроса…';stop.disabled=true;});
 start.addEventListener('click',async()=>{
  if(running)return;let sources;
@@ -148,7 +201,11 @@ start.addEventListener('click',async()=>{
    progress.value=i+1;draw();download.disabled=!records.length;
    await wait(delay);
   }
-  status.textContent=(stopRequested?'Сбор остановлен.':'Сбор завершён.')+'\nПостов: '+records.length+'\nКомментариев и ответов: '+commentsRecords.length+'\nОшибок: '+problemList.length+'\nСкачайте нужные CSV, чтобы сохранить данные.';
+  status.textContent=(stopRequested?'Сбор остановлен.':'Сбор завершён.')+'\nПостов: '+records.length+'\nКомментариев и ответов: '+commentsRecords.length+'\nОшибок: '+problemList.length;
+  if($('syncEnabled').checked&&records.length){
+   try{await githubSaveResults();status.textContent+='\nДанные переданы в закрытый GitHub.';}
+   catch(syncError){$('syncStatus').textContent='Ошибка передачи: '+(syncError?.message||String(syncError))+'\nCSV по-прежнему доступны для скачивания.';status.textContent+='\nНе удалось отправить данные в GitHub.';}
+  }else{status.textContent+='\nСкачайте нужные CSV, если хотите сохранить данные.';}
  }catch(e){status.textContent='Не удалось начать сбор: '+safeError(e);}
  finally{token=null;running=false;start.disabled=false;stop.disabled=true;download.disabled=!records.length;downloadComments.disabled=!commentsRecords.length;draw();$('counter').textContent='Собрано '+records.length+' уникальных постов';}
 });
