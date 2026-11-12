@@ -5,23 +5,37 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Анализ постов ВК</title>
+
   <script src="https://unpkg.com/@vkontakte/vk-bridge@2.14.2/dist/browser.min.js"></script>
+
   <style>
     body {
       font-family: Arial, sans-serif;
-      padding: 24px;
       background: #f3f5f8;
       color: #222;
+      padding: 20px;
+      margin: 0;
     }
+
+    h2 {
+      margin-top: 0;
+    }
+
     button {
       background: #0077ff;
       color: white;
+      padding: 14px 20px;
       border: none;
       border-radius: 10px;
-      padding: 15px 20px;
       font-size: 16px;
       cursor: pointer;
     }
+
+    button:disabled {
+      opacity: 0.5;
+      cursor: wait;
+    }
+
     #result {
       margin-top: 20px;
       padding: 15px;
@@ -29,48 +43,154 @@
       border-radius: 10px;
       white-space: pre-wrap;
       overflow-wrap: anywhere;
+      line-height: 1.5;
+    }
+
+    .post {
+      padding: 15px;
+      margin-top: 12px;
+      background: white;
+      border-radius: 10px;
+      white-space: pre-wrap;
+      overflow-wrap: anywhere;
+      line-height: 1.5;
+    }
+
+    .stats {
+      margin-top: 12px;
+      color: #666;
+      font-size: 14px;
     }
   </style>
 </head>
+
 <body>
+
   <h2>Анализ постов ВК</h2>
-  <p>Проверка пользовательской авторизации</p>
+
+  <p>Проверка получения публичных постов через VK API</p>
 
   <button id="auth">Проверить доступ</button>
+
   <div id="result">Готово к проверке</div>
+
+  <div id="posts"></div>
 
   <script>
     const appId = 54892559;
     const result = document.getElementById("result");
+    const postsContainer = document.getElementById("posts");
+    const button = document.getElementById("auth");
 
     vkBridge.send("VKWebAppInit")
-      .catch(() => {
-        result.textContent = "Не удалось инициализировать VK Bridge";
+      .catch(error => {
+        result.textContent =
+          "Ошибка инициализации VK Bridge:\n" +
+          JSON.stringify(error, null, 2);
       });
 
-    document.getElementById("auth").onclick = async () => {
+    button.onclick = async () => {
+      button.disabled = true;
+      postsContainer.replaceChildren();
+
       result.textContent = "Запрашиваем разрешение...";
 
       try {
-        const data = await vkBridge.send("VKWebAppGetAuthToken", {
-          app_id: appId,
-          scope: "wall"
-        });
+        const auth = await vkBridge.send(
+          "VKWebAppGetAuthToken",
+          {
+            app_id: appId,
+            scope: "wall"
+          }
+        );
 
-        if (data.access_token) {
-          result.textContent =
-            "Токен получен. Разрешения: " +
-            (data.scope || "не указаны") +
-            "\nСам токен скрыт.";
-        } else {
+        if (!auth.access_token) {
           result.textContent = "Токен не получен.";
+          return;
         }
-      } catch (error) {
+
+        result.textContent =
+          "Токен получен.\n" +
+          "Разрешения: " + (auth.scope || "не указаны") +
+          "\nПроверяем доступ к wall.get...";
+
+        try {
+          const response = await vkBridge.send(
+            "VKWebAppCallAPIMethod",
+            {
+              method: "wall.get",
+              params: {
+                domain: "irina_na_smene",
+                count: 5,
+                access_token: auth.access_token,
+                v: "5.199"
+              }
+            }
+          );
+
+          if (response.error) {
+            result.textContent =
+              "Ошибка VK API:\n" +
+              JSON.stringify(response.error, null, 2);
+            return;
+          }
+
+          const data = response.response;
+          const posts = data?.items;
+
+          if (!Array.isArray(posts)) {
+            result.textContent =
+              "Неожиданный ответ VK API:\n" +
+              JSON.stringify(response, null, 2);
+            return;
+          }
+
+          result.textContent =
+            "УСПЕХ!\n" +
+            "Получено постов: " + posts.length +
+            "\nВсего на стене: " + (data.count ?? "неизвестно");
+
+          posts.forEach((post, index) => {
+            const container = document.createElement("div");
+            container.className = "post";
+
+            const title = document.createElement("strong");
+            title.textContent = "Пост №" + (index + 1);
+
+            const text = document.createElement("p");
+            text.textContent = post.text || "[Пост без текста]";
+
+            const stats = document.createElement("div");
+            stats.className = "stats";
+
+            stats.textContent =
+              "Лайки: " + (post.likes?.count ?? 0) +
+              " | Комментарии: " + (post.comments?.count ?? 0) +
+              " | Репосты: " + (post.reposts?.count ?? 0) +
+              " | Просмотры: " + (post.views?.count ?? "нет данных");
+
+            container.appendChild(title);
+            container.appendChild(text);
+            container.appendChild(stats);
+
+            postsContainer.appendChild(container);
+          });
+
+        } catch (apiError) {
+          result.textContent =
+            "Ошибка при вызове wall.get:\n" +
+            JSON.stringify(apiError, null, 2);
+        }
+
+      } catch (authError) {
         result.textContent =
           "Ошибка авторизации:\n" +
-          JSON.stringify(error, null, 2);
+          JSON.stringify(authError, null, 2);
+      } finally {
+        button.disabled = false;
       }
     };
   </script>
+
 </body>
 </html>
