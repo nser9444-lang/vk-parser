@@ -10,7 +10,7 @@
 </head>
 <body><main>
 <h1>Парсер публичных постов ВК</h1>
-<div class="sub">Версия 1.2.1 · приложение 54892559 · сбор через VK Bridge · выгрузка CSV или отправка результатов в закрытый GitHub</div>
+<div class="sub">Версия 1.3 · приложение 54892559 · сбор через VK Bridge · выгрузка CSV или отправка результатов в закрытый GitHub</div>
 <section class="panel"><h2>1. Источники</h2>
 <label for="sources">Ссылки на публичные страницы и сообщества, по одной на строку</label>
 <textarea id="sources" spellcheck="false">https://vk.ru/irina_na_smene
@@ -34,13 +34,47 @@ https://vk.ru/club241887015</textarea>
 <div id="syncStatus" class="status">Передача отключена. Вы по-прежнему можете скачивать CSV вручную.</div></section>
 <section class="panel"><h2>3. Выполнение</h2><progress id="progress" max="1" value="0"></progress><div class="stats" id="counter">Пока ничего не собрано</div><div class="status" id="status" role="status">Нажмите «Получить доступ и собрать посты» внутри приложения ВКонтакте.</div><div class="small" id="errors"></div><div class="stats" id="commentCounter">Комментариев: 0</div></section>
 <section class="panel"><h2>4. Предпросмотр <span class="pill" id="rows">0 записей</span></h2><div class="table-wrap"><table><thead><tr><th>Дата</th><th>Источник</th><th>Текст поста</th><th>Лайки</th><th>Просмотры</th><th>Ссылка</th></tr></thead><tbody id="preview"><tr><td colspan="6">Данных пока нет</td></tr></tbody></table></div><p class="hint">CSV содержит полные тексты, ссылки, даты, статистику, тип публикации, вложения и идентификаторы. В таблице показаны первые 30 постов.</p></section>
+
+<section class="panel" id="authorFinder">
+<h2>5. Поиск новых авторов</h2>
+<p class="hint">Ищем неизвестные страницы по тематическим публикациям и/или по активности в сообществах, где есть ЦА. Затем проверяем открытые стены, реальные просмотры, регулярность публикаций и число подписчиков. Поиск не гарантирует полноту ВК.</p>
+<div class="grid">
+<div><label for="authorMode">Где искать кандидатов</label>
+<select id="authorMode"><option value="both" selected>По темам + в сообществах ЦА</option><option value="keywords">По тематическим публикациям</option><option value="communities">В заданных сообществах ЦА</option></select></div>
+<div><label for="authorMaxSubs">Не более подписчиков</label><select id="authorMaxSubs"><option value="10000">10 000</option><option value="30000">30 000</option><option value="50000" selected>50 000</option><option value="100000">100 000</option><option value="0">Без верхней границы</option></select></div>
+</div>
+<div class="grid">
+<div><label for="authorKeywords">Поисковые темы — по одной на строку</label><textarea id="authorKeywords" spellcheck="false" style="min-height:105px">расскажу историю
+на работе
+покупки на озон</textarea><div class="hint">Метод newsfeed.search ищет публичные посты, не авторов по имени. Доступность зависит от прав VK API.</div></div>
+<div><label for="authorCommunities">Сообщества с целевой аудиторией</label><textarea id="authorCommunities" spellcheck="false" style="min-height:105px">https://vk.ru/club229171994
+https://vk.ru/club242339503
+https://vk.ru/club241782252
+https://vk.ru/club241887015</textarea><div class="hint">Сначала ищем подписавших публикации авторов и источники репостов. Активных комментаторов можно проверять отдельно.</div></div>
+</div>
+<div class="grid">
+<div><label for="authorCandidateLimit">Сколько кандидатов проверить</label><select id="authorCandidateLimit"><option value="15">15 (быстро)</option><option value="30" selected>30</option><option value="60">60 (долго)</option></select></div>
+<div><label for="authorSample">Сколько последних постов изучить у каждого</label><select id="authorSample"><option value="20" selected>20</option><option value="40">40</option><option value="60">60</option></select></div>
+</div>
+<div class="grid">
+<div><label for="authorMinViews">Медиана просмотров не ниже</label><select id="authorMinViews"><option value="0">Не ограничивать</option><option value="1000">1 000</option><option value="3000" selected>3 000</option><option value="10000">10 000</option><option value="30000">30 000</option></select></div>
+<div><label>Дополнительные сигналы</label><label style="font-weight:400"><input id="authorIncludeGroups" type="checkbox" checked style="width:auto"> Включать авторские сообщества</label><label style="font-weight:400"><input id="authorCommenters" type="checkbox" style="width:auto"> Проверять активных комментаторов групп</label></div>
+</div>
+<div class="actions"><button id="authorSearch">Найти и оценить авторов</button><button id="authorStop" class="danger" disabled>Остановить поиск</button><button id="authorExport" class="secondary" disabled>CSV авторов</button><button id="authorPostExport" class="secondary" disabled>CSV их постов</button></div>
+<progress id="authorProgress" value="0" max="1"></progress>
+<div class="status" id="authorStatus">Поиск ещё не запускался. Если включена передача в закрытый GitHub, найденные авторы и их тексты отправятся туда после поиска.</div>
+<div class="small" id="authorErrors"></div>
+<h2 style="margin-top:19px">Найденные авторы <span class="pill" id="authorCount">0</span></h2>
+<div class="table-wrap"><table><thead><tr><th>Автор / страница</th><th>Подписчики</th><th>Медиана просмотров</th><th>Просмотры / подписчик</th><th>ER по просмотрам</th><th>Посты за 180 дней</th><th>Как найден</th><th>Ссылка</th></tr></thead><tbody id="authorPreview"><tr><td colspan="8">Кандидатов пока нет</td></tr></tbody></table></div>
+<p class="hint">Считаем показатели по выборке последних открытых оригинальных публикаций за 180 дней: медиана просмотров, (лайки + комментарии + репосты) / просмотры, просмотры / подписчики. Последний показатель — эвристика, а не охват уникальных людей. Если число подписчиков неизвестно, это явно указано.</p>
+</section>
 </main>
 <script>
 'use strict';
 const APP_ID=54892559, VERSION='5.199';
 const $=id=>document.getElementById(id);
 const start=$('start'),stop=$('stop'),download=$('export'),downloadComments=$('exportComments'),status=$('status'),errors=$('errors'),progress=$('progress');
-let running=false,stopRequested=false,records=[],commentsRecords=[],problemList=[];
+let running=false,stopRequested=false,records=[],commentsRecords=[],authorsRecords=[],authorPostRecords=[],problemList=[];
 const wait=ms=>new Promise(resolve=>setTimeout(resolve,ms));
 const safeError=e=>{let v=e?.error||e;return 'Код '+(v?.error_code??v?.code??'?')+': '+(v?.error_msg||v?.message||'Ошибка VK API');};
 function parseSource(raw){
@@ -142,13 +176,13 @@ async function githubSaveResults(){
  const runDir='vk-research/'+stamp;
  // Дробим выгрузку для снижения размеров запросов и надёжного восстановления.
  const jobs=[];
- for(const [kind,arr] of [['posts',records],['comments',commentsRecords]]){
+ for(const [kind,arr] of [['posts',records],['comments',commentsRecords],['authors',authorsRecords],['author_posts',authorPostRecords]]){
   for(let i=0;i<arr.length;i+=100){
    jobs.push({path:runDir+'/'+kind+'_'+String(i/100+1).padStart(4,'0')+'.json',
     payload:JSON.stringify({kind,created_at:new Date().toISOString(),count:Math.min(100,arr.length-i),items:arr.slice(i,i+100)},null,2)});
   }
  }
- jobs.push({path:runDir+'/summary.json',payload:JSON.stringify({created_at:new Date().toISOString(),posts:records.length,comments:commentsRecords.length,errors:problemList,sources:$('sources').value.split(/\r?\n/).filter(Boolean)},null,2)});
+ jobs.push({path:runDir+'/summary.json',payload:JSON.stringify({created_at:new Date().toISOString(),posts:records.length,comments:commentsRecords.length,authors:authorsRecords.length,author_posts:authorPostRecords.length,errors:problemList,sources:$('sources').value.split(/\r?\n/).filter(Boolean)},null,2)});
  let completed=0;
  for(const job of jobs){
   syncStatus.textContent='Передача в закрытый GitHub: '+completed+'/'+jobs.length+' файлов';
@@ -164,7 +198,7 @@ stop.addEventListener('click',()=>{stopRequested=true;status.textContent+='\nО�
 start.addEventListener('click',async()=>{
  if(running)return;let sources;
  try{const parsed=$('sources').value.split(/\r?\n/).map(parseSource).filter(Boolean);sources=[...new Map(parsed.map(x=>[x.key.toLowerCase(),x])).values()];if(!sources.length)throw Error('Добавьте хотя бы один источник.');}catch(e){status.textContent=e.message;return;}
- running=true;stopRequested=false;records=[];commentsRecords=[];problemList=[];draw();errors.textContent='';$('commentCounter').textContent='Комментариев: 0';start.disabled=true;stop.disabled=false;download.disabled=true;downloadComments.disabled=true;progress.max=sources.length;progress.value=0;
+ running=true;stopRequested=false;records=[];commentsRecords=[];authorsRecords=[];authorPostRecords=[];$('authorCount').textContent='0';$('authorExport').disabled=true;$('authorPostExport').disabled=true;problemList=[];draw();errors.textContent='';$('commentCounter').textContent='Комментариев: 0';start.disabled=true;stop.disabled=false;download.disabled=true;downloadComments.disabled=true;progress.max=sources.length;progress.value=0;
  const limit=Number($('limit').value),delay=Number($('delay').value);let token=null;
  try{
   if(typeof vkBridge==='undefined')throw Error('VK Bridge не загружен. Откройте приложение внутри ВКонтакте.');
@@ -214,6 +248,190 @@ start.addEventListener('click',async()=>{
  }catch(e){status.textContent='Не удалось начать сбор: '+safeError(e);}
  finally{token=null;running=false;start.disabled=false;stop.disabled=true;download.disabled=!records.length;downloadComments.disabled=!commentsRecords.length;draw();$('counter').textContent='Собрано '+records.length+' уникальных постов';}
 });
+
+/* Поиск авторов — независим от прежней выгрузки постов */
+function authorMedian(arr){
+ if(!arr.length)return null;
+ const a=[...arr].sort((x,y)=>x-y),i=Math.floor(a.length/2);
+ return a.length%2?a[i]:(a[i-1]+a[i])/2;
+}
+function authorRound(n,digits=1){return n==null?null:Number(n.toFixed(digits));}
+function authorRowCSV(data,fields,name){
+ if(!data.length)return;
+ const lines=[fields.map(csvCell).join(';'),...data.map(row=>fields.map(k=>csvCell(row[k])).join(';'))];
+ const blob=new Blob(['\ufeff'+lines.join('\r\n')],{type:'text/csv;charset=utf-8'});
+ const url=URL.createObjectURL(blob),a=document.createElement('a');
+ a.href=url;a.download=name+'_'+new Date().toISOString().slice(0,10)+'.csv';
+ document.body.append(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),1000);
+}
+const authorFields=['author_id','author_url','name','type','followers','followers_verified','sampled_posts','original_posts_180d','median_views','median_likes','median_comments','median_reposts','engagement_per_view_percent','views_per_follower','discovery_signals','discovery_sources','example_post_url'];
+const authorPostFields=['author_id','author_name',...csvFields];
+$('authorExport').addEventListener('click',()=>authorRowCSV(authorsRecords,authorFields,'vk_authors'));
+$('authorPostExport').addEventListener('click',()=>authorRowCSV(authorPostRecords,authorPostFields,'vk_author_posts'));
+$('authorStop').addEventListener('click',()=>{stopRequested=true;$('authorStop').disabled=true;$('authorStatus').textContent+=' \nОстанавливаем после текущего запроса...';});
+function authorDraw(){
+ const body=$('authorPreview');body.replaceChildren();$('authorCount').textContent=String(authorsRecords.length);
+ if(!authorsRecords.length){const td=body.insertRow().insertCell();td.colSpan=8;td.textContent='Подходящих кандидатов пока нет';return;}
+ for(const p of authorsRecords.slice(0,100)){
+  const tr=body.insertRow();
+  const vals=[p.name,p.followers_verified?p.followers:'неизвестно',p.median_views??'нет данных',p.views_per_follower==null?'—':p.views_per_follower.toFixed(2),p.engagement_per_view_percent==null?'—':p.engagement_per_view_percent.toFixed(1)+'%',p.original_posts_180d,p.discovery_sources];
+  for(let i=0;i<vals.length;i++){const td=tr.insertCell();td.textContent=vals[i];if(i===6)td.className='clip';}
+  const td=tr.insertCell(),a=document.createElement('a');a.href=p.author_url;a.textContent='Открыть';a.target='_blank';a.rel='noopener noreferrer';td.appendChild(a);
+ }
+}
+function authorCandidate(map,id,signal,source,post){
+ const n=Number(id);
+ if(!Number.isInteger(n)||n===0)return;
+ if(n<0&&!$('authorIncludeGroups').checked)return;
+ if(!map.has(n))map.set(n,{id:n,signals:new Set(),sources:new Set(),evidence:0,seedViews:0,examplePost:''});
+ const cand=map.get(n);cand.signals.add(signal);cand.sources.add(source);cand.evidence++;
+ cand.seedViews=Math.max(cand.seedViews,Number(post?.views?.count)||0);
+ if(post?.id&&post?.owner_id&&!cand.examplePost)cand.examplePost='https://vk.ru/wall'+post.owner_id+'_'+post.id;
+}
+function authorFromPost(map,p,signal,source){
+ if(p?.owner_id)authorCandidate(map,p.owner_id,signal,source,p);
+ // У групп можно обнаружить указанного автора записи или первоисточник репоста.
+ if(Number(p?.owner_id)<0&&Number(p?.signer_id)>0)authorCandidate(map,p.signer_id,'подписанный пост в группе',source,p);
+ for(const cp of (p?.copy_history||[]).slice(0,2)){
+  const original=Number(cp.owner_id??cp.from_id);
+  if(Number.isInteger(original)&&original!==0)authorCandidate(map,original,'первоисточник репоста',source,p);
+ }
+}
+async function authorLookup(c,token,sampleCount,maxSubs,minViews,cutoff){
+ let name='',url='',subs=null,kind='',profile;
+ if(c.id>0){
+  const data=await apiCall('users.get',{user_ids:String(c.id),fields:'screen_name,followers_count,is_closed,can_access_closed,verified'},token);
+  profile=Array.isArray(data)?data[0]:data?.items?.[0];
+  if(!profile||profile.deactivated||profile.is_closed===true)return null;
+  name=[profile.first_name,profile.last_name].filter(Boolean).join(' ')||('Пользователь '+c.id);
+  url='https://vk.ru/'+(profile.screen_name||'id'+c.id);
+  subs=Number.isFinite(Number(profile.followers_count))&&profile.followers_count!=null?Number(profile.followers_count):null;
+  kind='личный профиль';
+ }else{
+  const data=await apiCall('groups.getById',{group_ids:String(-c.id),fields:'members_count,description'},token);
+  profile=Array.isArray(data)?data[0]:(data?.groups?.[0]||data?.items?.[0]);
+  if(!profile||profile.is_closed===true)return null;
+  name=profile.name||('Сообщество '+(-c.id));
+  url='https://vk.ru/'+(profile.screen_name||'club'+(-c.id));
+  subs=Number.isFinite(Number(profile.members_count))&&profile.members_count!=null?Number(profile.members_count):null;
+  kind='сообщество';
+ }
+ if(maxSubs>0&&subs!==null&&subs>maxSubs)return null;
+ await wait(Number($('delay').value));
+ const data=await apiCall('wall.get',{owner_id:c.id,count:sampleCount,offset:0},token);
+ if(!Array.isArray(data?.items))return null;
+ const original=data.items.filter(p=>Number(p.owner_id)===c.id&&!(p.copy_history?.length)&&Number(p.date)>=cutoff&&Number(p.date)>0);
+ if(original.length<2)return null;
+ const viewed=original.map(p=>Number(p.views?.count)).filter(x=>Number.isFinite(x)&&x>=0);
+ const mv=authorMedian(viewed);
+ if(mv===null||mv<minViews)return null;
+ const ml=authorMedian(original.map(p=>Number(p.likes?.count)||0));
+ const mc=authorMedian(original.map(p=>Number(p.comments?.count)||0));
+ const mr=authorMedian(original.map(p=>Number(p.reposts?.count)||0));
+ const ers=original.map(p=>{const v=Number(p.views?.count);return Number.isFinite(v)&&v>0?100*((Number(p.likes?.count)||0)+(Number(p.comments?.count)||0)+(Number(p.reposts?.count)||0))/v:null;}).filter(x=>x!==null);
+ const result={
+  author_id:c.id,author_url:url,name,type:kind,followers:subs,followers_verified:subs!==null,
+  sampled_posts:data.items.length,original_posts_180d:original.length,
+  median_views:authorRound(mv,0),median_likes:authorRound(ml,0),median_comments:authorRound(mc,0),median_reposts:authorRound(mr,0),
+  engagement_per_view_percent:authorRound(authorMedian(ers),2),
+  views_per_follower:subs>0?authorRound(mv/subs,3):null,
+  discovery_signals:[...c.signals].join(' | '),discovery_sources:[...c.sources].join(' | '),example_post_url:c.examplePost
+ };
+ const texts=original.map(p=>({author_id:c.id,author_name:name,...normalize(p,{key:'author:'+c.id})}));
+ return {result,texts};
+}
+$('authorSearch').addEventListener('click',async()=>{
+ if(running)return;
+ const finder=$('authorSearch'),stopButton=$('authorStop'),bar=$('authorProgress'),info=$('authorStatus'),err=$('authorErrors');
+ const mode=$('authorMode').value,maxSubs=Number($('authorMaxSubs').value),minViews=Number($('authorMinViews').value),maxCandidates=Number($('authorCandidateLimit').value),sampleCount=Number($('authorSample').value),delay=Number($('delay').value),cutoff=Math.floor(Date.now()/1000)-180*86400;
+ const topics=$('authorKeywords').value.split(/\r?\n/).map(x=>x.trim()).filter(Boolean).slice(0,10);
+ const groupLines=$('authorCommunities').value.split(/\r?\n/).map(x=>x.trim()).filter(Boolean).slice(0,30);
+ if((mode==='keywords'||mode==='both')&&!topics.length){info.textContent='Введите хотя бы одну тему поиска.';return;}
+ if((mode==='communities'||mode==='both')&&!groupLines.length){info.textContent='Добавьте хотя бы одну ссылку на сообщество.';return;}
+ running=true;stopRequested=false;finder.disabled=true;start.disabled=true;stopButton.disabled=false;
+ authorsRecords=[];authorPostRecords=[];records=[];commentsRecords=[];problemList=[];draw();download.disabled=true;downloadComments.disabled=true;err.textContent='';authorDraw();
+ $('authorExport').disabled=true;$('authorPostExport').disabled=true;bar.value=0;bar.max=1;
+ try{
+  if(typeof vkBridge==='undefined')throw Error('Откройте приложение внутри ВКонтакте.');
+  info.textContent='Запрашиваем разрешение wall...';
+  const auth=await vkBridge.send('VKWebAppGetAuthToken',{app_id:APP_ID,scope:'wall'});
+  if(!auth?.access_token)throw Error('Не удалось получить пользовательский токен');
+  const token=auth.access_token,map=new Map(),issues=[];
+  if(mode==='keywords'||mode==='both'){
+   for(let i=0;i<topics.length&&!stopRequested;i++){
+    const term=topics[i];info.textContent='Поиск по теме '+(i+1)+'/'+topics.length+': «'+term+'»';
+    try{
+     let page='',pages=0;
+     do{
+      const data=await apiCall('newsfeed.search',{q:term,extended:1,count:100,...(page?{start_from:page}:{})},token);
+      const items=Array.isArray(data?.items)?data.items:[];
+      for(const p of items)authorFromPost(map,p,'тематический пост',term);
+      const next=data?.next_from||'';
+      if(!items.length||next===page)break;
+      page=next;pages++;
+      await wait(delay);
+     }while(page&&pages<2&&!stopRequested);
+    }catch(e){issues.push('Поиск «'+term+'»: '+safeError(e));}
+    await wait(delay);
+   }
+  }
+  if(mode==='communities'||mode==='both'){
+   for(let i=0;i<groupLines.length&&!stopRequested;i++){
+    const line=groupLines[i];info.textContent='Анализ сообщества '+(i+1)+'/'+groupLines.length+': '+line;
+    try{
+     const src=parseSource(line),params=paramsFor(src);
+     const data=await apiCall('wall.get',{...params,count:100,offset:0},token);
+     if(!Array.isArray(data?.items))throw Error('ВК не вернул список постов');
+     for(const p of data.items){
+      // Сама группа — источник ЦА, не кандидат в авторы, если нет отдельного авторского сигнала.
+      if(Number(p.owner_id)<0&&Number(p.signer_id)>0)authorCandidate(map,p.signer_id,'подписанная публикация',src.key,p);
+      if(Number(p.owner_id)<0&&Number(p.from_id)>0)authorCandidate(map,p.from_id,'пост участника',src.key,p);
+      for(const cp of (p.copy_history||[]).slice(0,2)){
+       const id=Number(cp.owner_id??cp.from_id);
+       if(id)authorCandidate(map,id,'источник репоста в сообществе',src.key,p);
+      }
+     }
+     if($('authorCommenters').checked){
+      for(const p of data.items.slice(0,8)){
+       if(stopRequested)break;
+       if((Number(p.comments?.count)||0)<1)continue;
+       try{
+        const comments=await apiCall('wall.getComments',{owner_id:p.owner_id,post_id:p.id,count:40},token);
+        for(const c of (comments?.items||[]))if(Number(c.from_id)>0)authorCandidate(map,c.from_id,'активный комментатор',src.key,p);
+       }catch(e){issues.push('Комментарии '+src.key+': '+safeError(e));}
+       await wait(delay);
+      }
+     }
+    }catch(e){issues.push('Сообщество '+line+': '+safeError(e));}
+    await wait(delay);
+   }
+  }
+  const candidates=[...map.values()].sort((a,b)=>b.evidence-a.evidence||b.seedViews-a.seedViews).slice(0,maxCandidates);
+  bar.max=Math.max(1,candidates.length);bar.value=0;
+  info.textContent='Обнаружено '+map.size+' кандидатов; проверяем '+candidates.length+' открытых стен и подписчиков.';
+  for(let i=0;i<candidates.length&&!stopRequested;i++){
+   const c=candidates[i];
+   info.textContent='Проверка авторов '+(i+1)+'/'+candidates.length+'. Подходящих: '+authorsRecords.length+'\nИсточник: '+[...c.sources].slice(0,2).join(', ');
+   try{
+    const obj=await authorLookup(c,token,sampleCount,maxSubs,minViews,cutoff);
+    if(obj){authorsRecords.push(obj.result);authorPostRecords.push(...obj.texts);}
+   }catch(e){issues.push('Автор '+c.id+': '+safeError(e));}
+   bar.value=i+1;authorDraw();
+   $('authorExport').disabled=!authorsRecords.length;$('authorPostExport').disabled=!authorPostRecords.length;
+   await wait(delay);
+  }
+  authorsRecords.sort((a,b)=>(b.views_per_follower??-1)-(a.views_per_follower??-1)||b.median_views-a.median_views);
+  authorDraw();
+  if(issues.length)err.textContent='Ошибки и ограничения API ('+issues.length+'):\n'+issues.slice(0,18).join('\n')+(issues.length>18?'\n...':'');
+  info.textContent=(stopRequested?'Поиск остановлен.':'Поиск завершён.')+'\nКандидатов: '+map.size+'; проверено: '+Math.min(candidates.length,bar.value)+'; подошло: '+authorsRecords.length+'; текстов авторов: '+authorPostRecords.length+'.\nОграничения/ошибки: '+issues.length+'.';
+  if($('syncEnabled').checked&&authorsRecords.length){
+   try{const path=await githubSaveResults();info.textContent+='\nРезультаты автоматически сохранены в закрытом GitHub: '+path;}
+   catch(e){info.textContent+='\nПередача в GitHub не удалась: '+(e.message||e)+'. CSV можно скачать вручную.';}
+  }
+ }catch(e){info.textContent='Ошибка запуска поиска: '+safeError(e);}
+ finally{running=false;stopRequested=false;finder.disabled=false;start.disabled=false;stopButton.disabled=true;$('authorExport').disabled=!authorsRecords.length;$('authorPostExport').disabled=!authorPostRecords.length;}
+});
+
 if(typeof vkBridge!=='undefined')vkBridge.send('VKWebAppInit').catch(e=>{status.textContent='Ошибка инициализации VK Bridge: '+safeError(e);});
 </script>
 </body></html>
