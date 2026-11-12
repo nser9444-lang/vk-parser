@@ -1,0 +1,76 @@
+
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Анализ постов ВК</title>
+  <script src="https://unpkg.com/@vkontakte/vk-bridge@2.14.2/dist/browser.min.js"></script>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      padding: 24px;
+      background: #f3f5f8;
+      color: #222;
+    }
+    button {
+      background: #0077ff;
+      color: white;
+      border: none;
+      border-radius: 10px;
+      padding: 15px 20px;
+      font-size: 16px;
+      cursor: pointer;
+    }
+    #result {
+      margin-top: 20px;
+      padding: 15px;
+      background: white;
+      border-radius: 10px;
+      white-space: pre-wrap;
+      overflow-wrap: anywhere;
+    }
+  </style>
+</head>
+<body>
+  <h2>Анализ постов ВК</h2>
+  <p>Проверка пользовательской авторизации</p>
+
+  <button id="auth">Проверить доступ</button>
+  <div id="result">Готово к проверке</div>
+
+  <script>
+    const appId = 54892559;
+    const result = document.getElementById("result");
+
+    vkBridge.send("VKWebAppInit")
+      .catch(() => {
+        result.textContent = "Не удалось инициализировать VK Bridge";
+      });
+
+    document.getElementById("auth").onclick = async () => {
+      result.textContent = "Запрашиваем разрешение...";
+
+      try {
+        const data = await vkBridge.send("VKWebAppGetAuthToken", {
+          app_id: appId,
+          scope: "wall"
+        });
+
+        if (data.access_token) {
+          result.textContent =
+            "Токен получен. Разрешения: " +
+            (data.scope || "не указаны") +
+            "\nСам токен скрыт.";
+        } else {
+          result.textContent = "Токен не получен.";
+        }
+      } catch (error) {
+        result.textContent =
+          "Ошибка авторизации:\n" +
+          JSON.stringify(error, null, 2);
+      }
+    };
+  </script>
+</body>
+</html>
