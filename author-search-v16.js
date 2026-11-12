@@ -71,7 +71,9 @@ function markOzon(post,source){
  if(result.grade==='none'||!post?.owner_id||post.copy_history?.length)return result;
  const id=Number(post.owner_id);
  if((targetIsPeople()&&id<0)||(!targetIsPeople()&&id>0))return result;
+ const newCandidate=!store.has(id);
  const r=entry(id);if(!r)return result;
+ if(newCandidate)lastSearchIds.add(id);
  const postKey=id+'_'+String(post.id??'');
  if(post.id==null||r.ozon_post_keys?.includes(postKey))return result;
  const strong=result.grade==='advref';
