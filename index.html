@@ -10,7 +10,7 @@
 </head>
 <body><main>
 <h1>Парсер публичных постов ВК</h1>
-<div class="sub">Версия 1.3 · приложение 54892559 · сбор через VK Bridge · выгрузка CSV или отправка результатов в закрытый GitHub</div>
+<div class="sub">Версия 1.3.1 · приложение 54892559 · сбор через VK Bridge · выгрузка CSV или отправка результатов в закрытый GitHub</div>
 <section class="panel"><h2>1. Источники</h2>
 <label for="sources">Ссылки на публичные страницы и сообщества, по одной на строку</label>
 <textarea id="sources" spellcheck="false">https://vk.ru/irina_na_smene
@@ -58,7 +58,7 @@ https://vk.ru/club241887015</textarea><div class="hint">Сначала ищем 
 </div>
 <div class="grid">
 <div><label for="authorMinViews">Медиана просмотров не ниже</label><select id="authorMinViews"><option value="0">Не ограничивать</option><option value="1000">1 000</option><option value="3000" selected>3 000</option><option value="10000">10 000</option><option value="30000">30 000</option></select></div>
-<div><label>Дополнительные сигналы</label><label style="font-weight:400"><input id="authorIncludeGroups" type="checkbox" checked style="width:auto"> Включать авторские сообщества</label><label style="font-weight:400"><input id="authorCommenters" type="checkbox" style="width:auto"> Проверять активных комментаторов групп</label></div>
+<div><label>Дополнительные сигналы</label><label style="font-weight:400"><input id="authorIncludeGroups" type="checkbox" checked style="width:auto"> Включать авторские сообщества</label><label style="font-weight:400"><input id="authorCommenters" type="checkbox" checked style="width:auto"> Проверять активных комментаторов групп</label></div>
 </div>
 <div class="actions"><button id="authorSearch">Найти и оценить авторов</button><button id="authorStop" class="danger" disabled>Остановить поиск</button><button id="authorExport" class="secondary" disabled>CSV авторов</button><button id="authorPostExport" class="secondary" disabled>CSV их постов</button></div>
 <progress id="authorProgress" value="0" max="1"></progress>
@@ -182,7 +182,7 @@ async function githubSaveResults(){
     payload:JSON.stringify({kind,created_at:new Date().toISOString(),count:Math.min(100,arr.length-i),items:arr.slice(i,i+100)},null,2)});
   }
  }
- jobs.push({path:runDir+'/summary.json',payload:JSON.stringify({created_at:new Date().toISOString(),posts:records.length,comments:commentsRecords.length,authors:authorsRecords.length,author_posts:authorPostRecords.length,errors:problemList,sources:$('sources').value.split(/\r?\n/).filter(Boolean)},null,2)});
+ jobs.push({path:runDir+'/summary.json',payload:JSON.stringify({created_at:new Date().toISOString(),posts:records.length,comments:commentsRecords.length,authors:authorsRecords.length,author_posts:authorPostRecords.length,errors:problemList,sources:$('sources').value.split(/\r?\n/).filter(Boolean),author_discovery:{topics:$('authorKeywords').value.split(/\r?\n/).filter(Boolean),communities:$('authorCommunities').value.split(/\r?\n/).filter(Boolean),mode:$('authorMode').value,maximum_subscribers:Number($('authorMaxSubs').value)}},null,2)});
  let completed=0;
  for(const job of jobs){
   syncStatus.textContent='Передача в закрытый GitHub: '+completed+'/'+jobs.length+' файлов';
@@ -406,7 +406,14 @@ $('authorSearch').addEventListener('click',async()=>{
     await wait(delay);
    }
   }
-  const candidates=[...map.values()].sort((a,b)=>b.evidence-a.evidence||b.seedViews-a.seedViews).slice(0,maxCandidates);
+  const allCandidates=[...map.values()].sort((a,b)=>b.evidence-a.evidence||b.seedViews-a.seedViews);
+  const people=allCandidates.filter(c=>c.id>0),communities=allCandidates.filter(c=>c.id<0);
+  const nPeople=Math.ceil(maxCandidates*0.75);
+  let candidates=[...people.slice(0,nPeople),...communities.slice(0,maxCandidates-nPeople)];
+  if(candidates.length<maxCandidates){
+   const used=new Set(candidates.map(x=>x.id));
+   for(const c of allCandidates)if(!used.has(c.id)&&candidates.length<maxCandidates){candidates.push(c);used.add(c.id);}
+  }
   bar.max=Math.max(1,candidates.length);bar.value=0;
   info.textContent='Обнаружено '+map.size+' кандидатов; проверяем '+candidates.length+' открытых стен и подписчиков.';
   for(let i=0;i<candidates.length&&!stopRequested;i++){
