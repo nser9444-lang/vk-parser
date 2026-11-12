@@ -6,7 +6,7 @@
  const vk=window.VKAuthorBase;
  const lsKey='vk_story_hunter_v18';
  const map=new Map();
- let running=false,stopped=false,token='',errList=[];
+ let running=false,stopped=false,token='',errList=[],ghLoaded=false;
  const now=()=>new Date().toISOString();
  const wait=ms=>new Promise(r=>setTimeout(r,ms));
  const numeric=v=>v==null?null:(Number.isFinite(Number(v))?Number(v):null);
@@ -72,13 +72,15 @@
   m=key.match(/^id(\d+)$/i);if(m)return Number(m[1]);
   m=key.match(/^(?:clip|wall)(-?\d+)_\d+$/i);if(m)return Number(m[1]);
   if(!/^[\w.-]{3,100}$/.test(key))return null;
-  const x=await apiCall('utils.resolveScreenName',{screen_name:key},await getToken());
+  let x=null;try{x=await apiCall('utils.resolveScreenName',{screen_name:key},await getToken());}catch(_){}
   if(['group','page','event'].includes(x?.type))return -Number(x.object_id);
   if(x?.type==='user')return Number(x.object_id);
-  return null;
+  const wall=await apiCall('wall.get',{domain:key,count:1},await getToken());
+  return Number(wall?.items?.[0]?.owner_id)||null;
  }
  async function ghSaveBase(){
   if(!E('syncEnabled').checked||!E('syncToken').value.trim())return 'Автосохранение в GitHub выключено';
+  if(!ghLoaded){await vk.load();ghLoaded=true;syncFromBase();}
   for(const r of map.values())if(r.hunt_imported||r.hunt_checked_at)
    vk.upsertFromHunter({...r,hunter_imported:!!r.hunt_imported});
   await vk.save();return 'База обновлена в закрытом GitHub';
@@ -91,7 +93,7 @@
  }
  E('huntLoad').addEventListener('click',async()=>{
   if(running)return;running=true;
-  try{await vk.load();const n=syncFromBase();status('Загружено из GitHub: '+n+' кандидатов. Можно проверить уже найденных или добавить список Церебро.');}
+  try{await vk.load();ghLoaded=true;const n=syncFromBase();status('Загружено из GitHub: '+n+' кандидатов. Можно проверить уже найденных или добавить список Церебро.');}
   catch(e){status('Ошибка загрузки базы: '+(e.message||e));}
   finally{running=false;}
  });
@@ -168,7 +170,7 @@
   if(running)return;running=true;stopped=false;errList=[];E('huntScan').disabled=true;E('huntStop').disabled=false;
   let checked=0,pCount=0,errors=0;
   try{
-   if(!map.size&&E('syncToken').value.trim()){await vk.load();syncFromBase();}
+   if(E('syncToken').value.trim()&&!ghLoaded){await vk.load();ghLoaded=true;syncFromBase();}
    const scope=E('huntScope').value,recheck=E('huntRecheck').value==='yes',time=Date.now();
    const eligible=[...map.values()].filter(x=>(scope==='all'||x.hunt_imported)&&!x.closed&&
      (x.followers==null||x.followers<=50000)&&
@@ -203,7 +205,7 @@
     }
     checked++;E('huntProgress').value=checked;
     persist();render();
-    if(checked%15===0)try{await ghSaveBase()}catch(e){errList.push('GitHub: '+(e.message||e));}
+    if(checked%50===0)try{await ghSaveBase()}catch(e){errList.push('GitHub: '+(e.message||e));}
     await wait(Number(E('delay').value)||700);
    }
    const saved=await ghSaveBase();
