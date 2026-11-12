@@ -39,15 +39,20 @@
  }
  function merge(x){if(!x||!Number.isSafeInteger(Number(x.id))||Number(x.id)===0)return null;
   const id=Number(x.id),old=map.get(id)||{id,url:id<0?'https://vk.ru/club'+(-id):'https://vk.ru/id'+id};
-  const out={...old,...x,id};map.set(id,out);return out;}
- function rows(){return [...map.values()].filter(x=>x.hunt_checked_at).sort((a,b)=>Number(!!b.hunt_pass)-Number(!!a.hunt_pass)||(b.hunt_median_views||0)-(a.hunt_median_views||0));}
+  const out={...old,...x,id};
+  if(out.hunt_checked_at&&out.followers>0&&out.followers<=50000&&out.hunt_long_count>=10&&out.hunt_median_views>=20000){
+   out.hunt_potential=out.hunt_long_share<.4;
+   if(out.hunt_potential)out.hunt_reason='Есть 10+ длинных постов ≥20к по медиане; доля длинных <40%';
+  }
+  map.set(id,out);return out;}
+ function rows(){return [...map.values()].filter(x=>x.hunt_checked_at).sort((a,b)=>Number(!!b.hunt_pass)-Number(!!a.hunt_pass)||Number(!!b.hunt_potential)-Number(!!a.hunt_potential)||(b.hunt_median_views||0)-(a.hunt_median_views||0));}
  function render(){
   const all=[...map.values()],done=rows(),passed=done.filter(x=>x.hunt_pass),body=E('huntRows');
-  E('huntCounts').textContent='В базе: '+all.length+' · проверено: '+done.length+' · подходят по метрикам: '+passed.length+' / цель 100';
+  E('huntCounts').textContent='В базе: '+all.length+' · проверено: '+done.length+' · основной список: '+passed.length+' · дополнительные перспективные: '+done.filter(x=>x.hunt_potential).length+' / цель 100';
   body.replaceChildren();
   for(const r of done.slice(0,200)){
    const tr=document.createElement('tr');
-   if(r.hunt_pass)tr.style.background='#e9f9ef';
+   if(r.hunt_pass)tr.style.background='#e9f9ef';else if(r.hunt_potential)tr.style.background='#fff5d7';
    const values=[r.name||r.url,r.followers??'—',r.hunt_long_count??'—',r.hunt_long_share==null?'—':Math.round(100*r.hunt_long_share)+'%',r.hunt_median_views??'—',r.hunt_over20_count??'—',r.hunt_ad_count??'—',r.hunt_reason??''];
    values.forEach((v,i)=>{const td=tr.insertCell();if(i===0){const a=document.createElement('a');a.href=r.url;a.target='_blank';a.rel='noopener noreferrer';a.textContent=String(v);td.append(a);}else td.textContent=String(v);});
    const td=tr.insertCell();if(r.hunt_example_url){const a=document.createElement('a');a.href=r.hunt_example_url;a.target='_blank';a.rel='noopener noreferrer';a.textContent='Посмотреть';td.append(a);}
@@ -178,8 +183,9 @@
    hunt_ad_count:ads.length,hunt_example_url:long.length?'https://vk.ru/wall'+r.id+'_'+(long.find(p=>numeric(p.views?.count)>=20000)||long[0]).id:'',
    hunt_ad_example_url:ads.length?'https://vk.ru/wall'+r.id+'_'+ads[0].id:''});
   r.hunt_pass=!!(r.followers>0&&r.followers<=50000&&long.length>=10&&r.hunt_long_share>=.4&&mv>=20000);
+  r.hunt_potential=!!(r.followers>0&&r.followers<=50000&&long.length>=10&&r.hunt_long_share<.4&&mv>=20000);
   r.hunt_reason=r.hunt_pass?'Прошёл по метрикам · проверить вручную':(!r.followers?'подписчики не получены':r.followers>50000?'более 50к':long.length<10?'длинных меньше 10':r.hunt_long_share<.4?'длинных менее 40%':'медиана длинных <20к');
-  if(r.hunt_pass){
+  if(r.hunt_pass||r.hunt_potential){
    for(const p of [...long.slice(0,45),...ads.slice(0,15)]){
     const row={author_id:r.id,author_name:r.name,...normalize(p,{key:'story-hunter:'+r.id})};
     if(!authorPostRecords.some(x=>x.post_url===row.post_url))authorPostRecords.push(row);
@@ -233,8 +239,8 @@
    }
    const saved=await ghSaveBase();
    if(E('syncEnabled').checked&&E('syncToken').value.trim()&&authorPostRecords.length){
-    authorsRecords=rows().filter(x=>x.hunt_pass).map(r=>({
-     author_id:r.id,author_url:r.url,name:r.name,followers:r.followers,
+    authorsRecords=rows().filter(x=>x.hunt_pass||x.hunt_potential).map(r=>({
+     author_id:r.id,author_url:r.url,name:r.name,followers:r.followers,screening_group:r.hunt_pass?'длинный формат':'смешанный формат',
      median_views:r.hunt_median_views,long_post_count:r.hunt_long_count,
      long_post_share:r.hunt_long_share,post_sample_count:r.hunt_sample_count,
      long_posts_20k:r.hunt_over20_count,ad_marked_posts:r.hunt_ad_count,
@@ -243,14 +249,14 @@
     try{await githubSaveResults();}catch(e){errList.push('Тексты в GitHub: '+(e.message||e));}
    }
    status('Проверено: '+checked+'; прошли критерии: '+pCount+
-    '; всего в базе прошли: '+rows().filter(x=>x.hunt_pass).length+' / 100; ошибки: '+errors+
+    '; основной список: '+rows().filter(x=>x.hunt_pass).length+'; перспективные смешанные: '+rows().filter(x=>x.hunt_potential).length+' / цель 100; ошибки: '+errors+
     '. '+saved+(errList.length?'\n'+errList.slice(0,5).join('\n'):''));
   }catch(e){status('Ошибка скрининга: '+(e.message||e));}
   finally{running=false;E('huntScan').disabled=false;E('huntStop').disabled=true;persist();render();}
  });
  E('huntExport').addEventListener('click',()=>{
   const fields=['id','name','url','followers','hunt_checked_at','hunt_pass','hunt_reason','hunt_sample_count',
-   'hunt_long_count','hunt_long_share','hunt_median_views','hunt_over20_count','hunt_ad_count','hunt_example_url','hunt_ad_example_url'];
+   'hunt_long_count','hunt_long_share','hunt_median_views','hunt_over20_count','hunt_potential','hunt_ad_count','hunt_example_url','hunt_ad_example_url'];
   const escape=x=>{let s=String(x??'');if(/^[\s\t\r\n]*[=+@-]/.test(s))s="'"+s;return '"'+s.replace(/"/g,'""')+'"';};
   const data=[fields.map(escape).join(';'),...rows().map(r=>fields.map(k=>escape(r[k])).join(';'))].join('\r\n');
   const blob=new Blob(['\uFEFF'+data],{type:'text/csv;charset=utf-8'});
