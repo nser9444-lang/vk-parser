@@ -10,7 +10,7 @@
 </head>
 <body><main>
 <h1>Парсер публичных постов ВК</h1>
-<div class="sub">Версия 1.8 · приложение 54892559 · сбор через VK Bridge · выгрузка CSV или отправка результатов в закрытый GitHub</div>
+<div class="sub">Версия 1.8.1 · приложение 54892559 · сбор через VK Bridge · выгрузка CSV или отправка результатов в закрытый GitHub</div>
 <section class="panel"><h2>1. Источники</h2>
 <label for="sources">Ссылки на публичные страницы и сообщества, по одной на строку</label>
 <textarea id="sources" spellcheck="false">https://vk.ru/irina_na_smene
@@ -236,9 +236,10 @@ async function githubSaveResults(){
  // Дробим выгрузку для снижения размеров запросов и надёжного восстановления.
  const jobs=[];
  for(const [kind,arr] of [['posts',records],['comments',commentsRecords],['authors',authorsRecords],['author_posts',authorPostRecords]]){
-  for(let i=0;i<arr.length;i+=100){
-   jobs.push({path:runDir+'/'+kind+'_'+String(i/100+1).padStart(4,'0')+'.json',
-    payload:JSON.stringify({kind,created_at:new Date().toISOString(),count:Math.min(100,arr.length-i),items:arr.slice(i,i+100)},null,2)});
+  const chunkSize=kind==='author_posts'?20:100;
+  for(let i=0;i<arr.length;i+=chunkSize){
+   jobs.push({path:runDir+'/'+kind+'_'+String(i/chunkSize+1).padStart(4,'0')+'.json',
+    payload:JSON.stringify({kind,created_at:new Date().toISOString(),count:Math.min(chunkSize,arr.length-i),items:arr.slice(i,i+chunkSize)},null,2)});
   }
  }
  jobs.push({path:runDir+'/summary.json',payload:JSON.stringify({created_at:new Date().toISOString(),posts:records.length,comments:commentsRecords.length,authors:authorsRecords.length,author_posts:authorPostRecords.length,errors:problemList,sources:$('sources').value.split(/\r?\n/).filter(Boolean),author_discovery:{topics:$('authorKeywords').value.split(/\r?\n/).filter(Boolean),communities:$('authorCommunities').value.split(/\r?\n/).filter(Boolean),mode:$('authorMode').value,maximum_subscribers:Number($('authorMaxSubs').value)}},null,2)});
@@ -332,5 +333,5 @@ if(typeof vkBridge!=='undefined')vkBridge.send('VKWebAppInit').catch(e=>{status.
 </script>
 <script src="./ozon-ref-v16.js"></script>
 <script src="./author-search-v18.js?v=1.8"></script>
-<script src="./story-hunter-v18.js?v=1.8"></script>
+<script src="./story-hunter-v18.js?v=1.8.1"></script>
 </body></html>
