@@ -10,7 +10,7 @@
 </head>
 <body><main>
 <h1>Парсер публичных постов ВК</h1>
-<div class="sub">Версия 1.6.1 · приложение 54892559 · сбор через VK Bridge · выгрузка CSV или отправка результатов в закрытый GitHub</div>
+<div class="sub">Версия 1.7 · приложение 54892559 · сбор через VK Bridge · выгрузка CSV или отправка результатов в закрытый GitHub</div>
 <section class="panel"><h2>1. Источники</h2>
 <label for="sources">Ссылки на публичные страницы и сообщества, по одной на строку</label>
 <textarea id="sources" spellcheck="false">https://vk.ru/irina_na_smene
@@ -37,8 +37,8 @@ https://vk.ru/club241887015</textarea>
 <section class="panel"><h2>4. Предпросмотр <span class="pill" id="rows">0 записей</span></h2><div class="table-wrap"><table><thead><tr><th>Дата</th><th>Источник</th><th>Текст поста</th><th>Лайки</th><th>Просмотры</th><th>Ссылка</th></tr></thead><tbody id="preview"><tr><td colspan="6">Данных пока нет</td></tr></tbody></table></div><p class="hint">CSV содержит полные тексты, ссылки, даты, статистику, тип публикации, вложения и идентификаторы. В таблице показаны первые 30 постов.</p></section>
 
 <section class="panel" id="authorFinder">
-<h2>5. Поиск авторов и партнёрских ссылок Ozon — версия 1.6.1</h2>
-<p class="hint">Отдельно ищем личных блогеров и авторские сообщества. Фильтр Ozon ищет реальные ссылки с параметром advRef и отдельно помечает неоднозначные короткие ссылки. Сохраняем найденные ссылки и посты в накопительную базу GitHub.</p>
+<h2>5. Авторы с большими просмотрами обычных постов и рекламой — версия 1.7</h2>
+<p class="hint">Наша цель: находить авторов, у которых обычные публикации стабильно получают много просмотров относительно числа подписчиков, и при этом есть рекламные интеграции Ozon. Публичные просмотры не доказывают отсутствие платного продвижения.</p>
 <div class="actions"><button id="loadAuthorBase" class="secondary" type="button">Загрузить базу из GitHub</button></div>
 <div class="grid"><div><label for="authorTarget">Кого ищем</label>
 <select id="authorTarget"><option value="people" selected>👤 Личные блогеры</option><option value="groups">📖 Авторские сообщества</option></select></div>
@@ -89,6 +89,17 @@ https://vk.ru/club241887015</textarea></div>
 <button id="ozonScan" class="secondary" type="button">Проверить Ozon-ссылки у кандидатов</button>
 </div>
 </div>
+<div style="padding:15px;margin-top:18px;border:1px solid #cdebd6;border-radius:12px;background:#f6fcf8">
+<h3 style="margin:0 0 8px">🚀 Высокие просмотры обычных постов + реклама</h3>
+<p class="hint">Считаем отдельно просмотры обычных постов без внешних ссылок и явной рекламной маркировки и просмотры записей с <code>advRef</code>. Нельзя достоверно узнать, были ли просмотры куплены: для этого нужна статистика владельца. Отметка «кандидат в топ» означает сильные публичные показатели, не доказанную органику.</p>
+<div class="grid">
+<div><label for="reachMinMedian">Медиана обычных постов от</label>
+<select id="reachMinMedian"><option value="5000">5 000</option><option value="10000" selected>10 000</option><option value="20000">20 000</option><option value="50000">50 000</option><option value="100000">100 000</option></select></div>
+<div><label for="reachMinRatio">Просмотры / подписчики не ниже</label>
+<select id="reachMinRatio"><option value="1">× 1</option><option value="2">× 2</option><option value="3" selected>× 3</option><option value="5">× 5</option><option value="10">× 10</option></select></div>
+</div>
+<p class="hint">Дополнительно нужно минимум 6 обычных постов в выборке, 3 из них с ≥10 000 просмотров или ≥2× подписчиков (что больше), и хотя бы одна ссылка с <code>advRef</code>. Эти пороги — параметры нашего отбора, а не правила ВК.</p>
+</div>
 <div class="grid">
 <div><label for="authorCandidateLimit">Глубоко проверить лучших</label><select id="authorCandidateLimit"><option value="20">20</option><option value="40" selected>40</option><option value="60">60</option><option value="100">100</option></select></div>
 <div><label for="authorSample">Последних постов каждого</label><select id="authorSample"><option value="15">15</option><option value="20" selected>20</option><option value="40">40</option></select></div>
@@ -105,9 +116,14 @@ https://vk.ru/club241887015</textarea></div>
 <progress id="fastProgress" value="0" max="1"></progress>
 <div class="status" id="fastStatus">Для накопления базы введите GitHub-токен в разделе 2. Затем нажмите «1. Быстро найти кандидатов».</div><div class="small" id="fastErrors"></div>
 <h2 style="margin-top:20px">Кандидаты <span class="pill" id="candidateCount">0</span></h2>
-<div class="table-wrap"><table><thead><tr><th>Страница</th><th>Тип</th><th>Подписчики</th><th>Приоритет</th><th>Ozon</th><th>Примеры просмотров</th><th>Статус</th><th>Пример поста</th><th>Ссылка</th></tr></thead><tbody id="candidateRows"></tbody></table></div>
+<div class="table-wrap"><table><thead><tr><th>Страница</th><th>Тип</th><th>Подписчики</th><th>Приоритет</th><th>Медиана обычных</th><th>× подписчики</th><th>Ozon</th><th>Примеры просмотров</th><th>Статус</th><th>Пример поста</th><th>Ссылка</th></tr></thead><tbody id="candidateRows"></tbody></table></div>
 <h2 style="margin-top:20px">Проверенные подходящие авторы <span class="pill" id="authorCount">0</span></h2>
 <div class="table-wrap"><table><thead><tr><th>Автор</th><th>Подписчики</th><th>Медиана просмотров</th><th>Просмотры / подписчик</th><th>ER</th><th>Признаки историй*</th><th>Постов</th><th>Ozon</th><th>Ссылка</th></tr></thead><tbody id="authorRows"></tbody></table></div>
+<h2 style="margin-top:20px">Рейтинг: обычные просмотры + интеграции <span class="pill" id="reachCount">0</span></h2>
+<div class="table-wrap"><table><thead><tr>
+<th>Автор</th><th>Подписчики</th><th>Обычных постов</th><th>Медиана обычных</th><th>× подписчики</th><th>Постов с высокими просмотрами</th><th>advRef в базе</th><th>Медиана постов advRef</th><th>Статус</th><th>Страница</th>
+</tr></thead><tbody id="reachRows"></tbody></table></div>
+<p class="hint">Пост с Ozon-ссылкой учитывается отдельно от обычных публикаций. Показатель «обычные» означает лишь отсутствие обнаруженных рекламных признаков, а не подтверждение бесплатного охвата.</p>
 <div class="actions"><button id="candidateExport" class="secondary" disabled>CSV кандидатов</button><button id="authorExport" class="secondary" disabled>CSV авторов</button><button id="authorPostExport" class="secondary" disabled>CSV их постов</button></div>
 <p class="hint">* Признаки сторителлинга определяются приблизительно, а авторский характер сообщества — по названию и описанию, поэтому возможны ошибки отбора. Для накопления базы включи автопередачу в закрытый GitHub (раздел 2). Переключение между категориями не удаляет ранее найденных кандидатов.</p>
 </section>
@@ -315,5 +331,5 @@ start.addEventListener('click',async()=>{
 if(typeof vkBridge!=='undefined')vkBridge.send('VKWebAppInit').catch(e=>{status.textContent='Ошибка инициализации VK Bridge: '+safeError(e);});
 </script>
 <script src="./ozon-ref-v16.js"></script>
-<script src="./author-search-v16.js?v=1.6.1"></script>
+<script src="./author-search-v17.js?v=1.7"></script>
 </body></html>
