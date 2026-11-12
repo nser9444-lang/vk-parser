@@ -150,7 +150,13 @@ function updateView(){
   const badge=(r.ozon_ref_hits||0)>0?'advRef: '+r.ozon_ref_hits:(r.ozon_possible_hits||0)>0?'Возможно: '+r.ozon_possible_hits:'—';
   for(const val of [r.name||('ID '+r.id),r.kind==='user'?'Личный профиль':(authorGroupLikely(r)?'Вероятный авторский':'Не классифицирован'),r.followers??'неизвестно',r.score??0,badge,r.seed_views??'—',state]){const td=tr.insertCell();td.textContent=val;}
   const proof=tr.insertCell();
-  if(r.ozon_sample_post_url){const a=document.createElement('a');a.href=r.ozon_sample_post_url;a.target='_blank';a.rel='noopener noreferrer';a.textContent='Пост с ссылкой';proof.append(a);}else proof.textContent='—';
+  if(r.ozon_sample_post_url){
+   const a=document.createElement('a');a.href=r.ozon_sample_post_url;a.target='_blank';a.rel='noopener noreferrer';a.textContent='Пост';proof.append(a);
+   if(r.ozon_sample_link){
+    proof.append(document.createTextNode(' · '));
+    const link=document.createElement('a');link.href=r.ozon_sample_link;link.target='_blank';link.rel='noopener noreferrer';link.textContent='Ozon';proof.append(link);
+   }
+  }else proof.textContent='—';
   const td=tr.insertCell(),a=document.createElement('a');a.href=r.url;a.target='_blank';a.rel='noopener noreferrer';a.textContent='Открыть';td.append(a);
  }
  const results=el('authorRows');results.replaceChildren();
