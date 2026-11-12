@@ -22,7 +22,7 @@
  '<div><label for="huntScope">Очередь проверки</label><select id="huntScope"><option value="imported">Только добавленные ссылки</option><option value="all">Все кандидаты из базы GitHub</option></select></div></div>'+
  '<div class="grid"><div><label for="huntBatch">Количество авторов за запуск</label><select id="huntBatch"><option value="20">20</option><option value="50" selected>50</option><option value="100">100</option><option value="200">200</option></select></div>'+
  '<div><label for="huntRecheck">Проверять повторно</label><select id="huntRecheck"><option value="no" selected>Только новые или старше 14 дней</option><option value="yes">Всех, в том числе проверенных</option></select></div></div>'+
- '<div class="actions"><button id="huntLoad" class="secondary" type="button">Загрузить базу GitHub</button><button id="huntImport" type="button">1. Добавить ссылки</button><button id="huntScan" type="button">2. Проверить охваты</button><button id="huntExport" class="secondary" type="button">Скачать результаты CSV</button><button id="huntStop" class="danger" type="button" disabled>Стоп</button></div>'+
+ '<div class="actions"><button id="huntLoad" class="secondary" type="button">Загрузить базу GitHub</button><button id="huntImportSeeds" class="secondary" type="button">Загрузить наши 317 ссылок</button><button id="huntImport" type="button">1. Добавить ссылки</button><button id="huntScan" type="button">2. Проверить охваты</button><button id="huntExport" class="secondary" type="button">Скачать результаты CSV</button><button id="huntStop" class="danger" type="button" disabled>Стоп</button></div>'+
  '<progress id="huntProgress" value="0" max="1"></progress>'+
  '<div id="huntStatus" class="status">Загрузите базу из GitHub или добавьте список. Ключи доступа не сохраняются.</div>'+
  '<div class="stats" id="huntCounts">—</div>'+
@@ -97,6 +97,27 @@
   catch(e){status('Ошибка загрузки базы: '+(e.message||e));}
   finally{running=false;}
  });
+ 
+ E('huntImportSeeds').addEventListener('click',async()=>{
+  if(running)return;
+  const ghToken=E('syncToken').value.trim();
+  if(!ghToken){status('Введите GitHub-токен в разделе 2. Он нужен для чтения нашей закрытой базы из 317 ссылок.');return;}
+  E('huntImportSeeds').disabled=true;
+  try{
+   const j=await githubRequest('https://api.github.com/repos/nser9444-lang/vk-parser-data/contents/vk-research/author-seeds-2026-11-12.csv',ghToken);
+   if(!j.content)throw Error('GitHub не вернул список ссылок');
+   const raw=atob(j.content.replace(/\s/g,''));
+   const bytes=Uint8Array.from(raw,c=>c.charCodeAt(0));
+   const txt=new TextDecoder().decode(bytes);
+   const found=extract(txt);
+   if(found.length<300)throw Error('Список неполный: '+found.length+' ссылок');
+   E('huntText').value=found.join('\n');
+   status('Из GitHub получено '+found.length+' ссылок; добавляю в общую базу...');
+   E('huntImport').click();
+  }catch(e){status('Не удалось получить 317 ссылок: '+(e.message||e));}
+  finally{E('huntImportSeeds').disabled=false;}
+ });
+
  E('huntImport').addEventListener('click',async()=>{
   if(running)return;running=true;E('huntImport').disabled=true;
   try{
