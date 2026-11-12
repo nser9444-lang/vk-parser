@@ -491,6 +491,106 @@ el('verifyAuthors').addEventListener('click',async()=>{
  }catch(e){info.textContent='Ошибка проверки: '+fmtError(e);showProblems();}
  finally{setBusy(false);halt=false;stopRequested=false;}
 });
+
+/* Поиск страниц по Ozon-ссылкам, без обхода внешних сайтов и скрытых редиректов. */
+async function ozonSearchNews(token){
+ const queries=['advRef','ozon.ru/product','ozon.ru/p/o','покупала по скидке на Ozon','ссылка на Озон'];
+ let scanned=0,flagged=0;
+ const delay=Number(el('delay').value)||250;
+ progress.max=queries.length;progress.value=0;
+ for(let q=0;q<queries.length&&!halt;q++){
+  info.textContent='Ищем посты с Ozon-ссылками: '+(q+1)+'/'+queries.length+' — '+queries[q];
+  try{
+   let next='';
+   for(let page=0;page<2&&!halt;page++){
+    const data=await apiCall('newsfeed.search',{
+     q:queries[q],extended:1,count:100,start_time:Math.floor(Date.now()/1000)-180*86400,
+     ...(next?{start_from:next}:{})
+    },token);
+    const posts=Array.isArray(data?.items)?data.items:[];
+    scanned+=posts.length;
+    for(const post of posts){
+     const proof=markOzon(post,'Ozon-поиск: '+queries[q]);
+     if(proof&&proof.grade!=='none')flagged++;
+    }
+    const upcoming=data?.next_from||'';
+    if(!upcoming||upcoming===next||!posts.length)break;
+    next=upcoming;
+    await sleep(delay);
+   }
+  }catch(e){lastProblems.push('Ozon-поиск «'+queries[q]+'»: '+fmtError(e));}
+  progress.value=q+1;await sleep(delay);
+ }
+ return {scanned,flagged};
+}
+async function ozonScanWalls(token){
+ const cap=Math.max(1,Number(el('ozonWallCount').value)||30);
+ const sample=Math.max(1,Number(el('ozonPostCount').value)||40);
+ const list=[...store.values()]
+  .filter(r=>eligible(r,true))
+  .filter(r=>el('authorForceRecheck').checked||!fresh(r.ozon_checked_at,7))
+  .sort(scoreCompare).slice(0,cap);
+ if(!list.length){
+  info.textContent='Нет кандидатов для очередной проверки Ozon-ссылок. Можно включить «Перепроверить уже проверенных».';
+  return null;
+ }
+ progress.max=list.length;progress.value=0;let checked=0,matched=0;
+ for(const r of list){
+  if(halt)break;
+  info.textContent='Проверка ссылок Ozon '+(checked+1)+'/'+list.length+': '+(r.name||r.url)+
+   '\nУже найдено страниц с advRef: '+matched;
+  try{
+   const data=await apiCall('wall.get',{owner_id:r.id,count:sample,offset:0},token);
+   if(!Array.isArray(data?.items))throw Error('Не удалось получить публикации стены');
+   const posts=data.items.filter(p=>Number(p.owner_id)===r.id&&!p.copy_history?.length);
+   for(const p of posts)markOzon(p,'проверка Ozon-ссылок: '+r.url);
+   r.ozon_checked_at=timestamp();r.ozon_scanned_posts=(r.ozon_scanned_posts||0)+posts.length;
+   if((r.ozon_ref_hits||0)>0)matched++;
+   mark(r);
+  }catch(e){lastProblems.push('Ozon-ссылки '+r.url+': '+fmtError(e));}
+  checked++;progress.value=checked;updateView();
+  await sleep(Number(el('delay').value)||250);
+ }
+ return {checked,matched};
+}
+el('ozonFind').addEventListener('click',async()=>{
+ if(busy)return;
+ setBusy(true);halt=false;stopRequested=false;lastProblems=[];lastSearchIds=new Set();
+ const started=Date.now();
+ try{
+  if(!loaded&&ghToken())await loadBase({silent:true});
+  const token=await vkToken(),out=await ozonSearchNews(token);
+  if(lastSearchIds.size)await refreshProfiles([...lastSearchIds],token,Number(el('delay').value)||250);
+  const saved=await saveIfEnabled();updateView();
+  info.textContent=(halt?'Поиск Ozon остановлен.':'Поиск Ozon завершён.')+
+   '\nНайденных публичных постов по запросам: '+out.scanned+'; обнаружений товарных ссылок: '+out.flagged+
+   '; новых страниц: '+lastSearchIds.size+
+   '\nВсего страниц с маркером advRef: '+[...store.values()].filter(r=>(r.ozon_ref_hits||0)>0).length+
+   '\nВремя: '+Math.round((Date.now()-started)/1000)+' сек. · '+saved+
+   '\nВК может не индексировать ссылки в поиске. Для проверки кандидатов используйте «Проверить ссылки в постах».';
+  showProblems();
+ }catch(e){info.textContent='Ошибка поиска ссылок Ozon: '+fmtError(e);showProblems();}
+ finally{setBusy(false);halt=false;stopRequested=false;}
+});
+el('ozonScan').addEventListener('click',async()=>{
+ if(busy)return;
+ setBusy(true);halt=false;stopRequested=false;lastProblems=[];
+ const started=Date.now();
+ try{
+  if(!loaded&&ghToken())await loadBase({silent:true});
+  if(!store.size)throw Error('База пуста. Сначала загрузите базу из GitHub или выполните поиск авторов.');
+  const token=await vkToken(),out=await ozonScanWalls(token);
+  if(!out)return;
+  const saved=await saveIfEnabled();updateView();
+  info.textContent=(halt?'Проверка остановлена.':'Проверка ссылок завершена.')+
+   '\nСтраниц проверено: '+out.checked+'; с маркером advRef: '+out.matched+
+   '\nВремя: '+Math.round((Date.now()-started)/1000)+' сек. · '+saved+
+   '\nОбычная ссылка Ozon не доказывает участие в реферальной программе.';
+  showProblems();
+ }catch(e){info.textContent='Ошибка проверки ссылок Ozon: '+fmtError(e);showProblems();}
+ finally{setBusy(false);halt=false;stopRequested=false;}
+});
+
 el('authorTarget').addEventListener('change',()=>{
  const group=!targetIsPeople();
  el('groupKeywords').disabled=!group;
