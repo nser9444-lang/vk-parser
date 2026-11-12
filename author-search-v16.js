@@ -1,5 +1,5 @@
 'use strict';
-/* VK Parser 1.6 — отдельный поиск личных авторов и авторских пабликов, двухэтапная проверка.
+/* VK Parser 1.6.1 — отдельный поиск личных авторов и авторских пабликов, двухэтапная проверка.
    Хранение: приватные JSON-шарды в личном GitHub пользователя.
    Никакие токены не записываются в базу или localStorage. */
 (function(){
@@ -134,17 +134,26 @@ function scoreCompare(a,b){
 function fresh(date,days){return date&&Date.now()-Date.parse(date)<days*86400000;}
 function updateView(){
  const all=[...store.values()],eligibleAll=all.filter(r=>eligible(r)).sort(scoreCompare);
+ // В строгом режиме скрытые профили могут быть НЕ ПРОВЕРЕНЫ на ссылки, а не нерелевантны.
+ const uncheckedOzon=el('ozonFilter').value==='off'?0:
+  all.filter(r=>eligible(r,true)&&!fresh(r.ozon_checked_at,7)).length;
  const qualified=all.filter(r=>r.qualification==='qualified'&&eligible(r)).sort((a,b)=>(b.views_per_follower??-1)-(a.views_per_follower??-1));
  const peopleCount=all.filter(r=>r.id>0).length,groupCount=all.filter(r=>r.id<0).length;
  const strong=all.filter(r=>(r.ozon_ref_hits||0)>0).length,possible=all.filter(r=>(r.ozon_possible_hits||0)>0).length;
  el('baseCount').textContent='Всего: '+store.size+' · личные страницы: '+peopleCount+' · сообщества: '+groupCount+
   '\nС маркером Ozon advRef: '+strong+' · с вероятной короткой товарной ссылкой: '+possible+
-  '\nВ выбранном направлении с фильтрами: '+eligibleAll.length+' · проверенных подходящих: '+qualified.length;
+  '\nВ выбранном направлении с фильтрами: '+eligibleAll.length+' · проверенных подходящих: '+qualified.length+
+  (el('ozonFilter').value==='off'?'':' · ещё не проверено на Ozon: '+uncheckedOzon);
  el('targetHint').textContent=targetIsPeople()
   ?'Ищем авторов личных профилей в тематических постах и публикациях сообществ. Поиск groups.search отключён: он возвращает паблики, а не людей.'
   :'Ищем вероятные авторские сообщества; обычные магазины и учреждения стараемся отсекать по названию и описанию. Оценка предварительная.';
  const tbody=el('candidateRows');tbody.replaceChildren();
- if(!eligibleAll.length){let cell=tbody.insertRow().insertCell();cell.colSpan=9;cell.textContent='Нет совпадений с фильтром. Запустите поиск или проверку Ozon-ссылок.';}
+ if(!eligibleAll.length){
+  let cell=tbody.insertRow().insertCell();cell.colSpan=9;
+  cell.textContent=uncheckedOzon
+   ?'Под строгим фильтром пока 0 совпадений, но '+uncheckedOzon+' кандидатов ещё не проверено на ссылки Ozon. Нажмите «Проверить Ozon-ссылки у кандидатов» либо «2. Проверить лучших».'
+   :'Нет подтверждённых совпадений с текущим фильтром среди проверенных страниц. Можно запустить поиск новых.';
+ }
  for(const r of eligibleAll.slice(0,45)){
   const tr=tbody.insertRow();const state=r.qualification==='qualified'?'подошёл':r.qualification==='rejected'?'не подошёл':r.qualification==='error'?'ошибка проверки':'не проверен';
   const badge=(r.ozon_ref_hits||0)>0?'advRef: '+r.ozon_ref_hits:(r.ozon_possible_hits||0)>0?'Возможно: '+r.ozon_possible_hits:'—';
@@ -384,6 +393,9 @@ async function inspect(r,token,minimum,samples){
  const newest=Math.floor(Date.now()/1000)-180*86400;
  const posts=postData.items.filter(p=>Number(p.owner_id)===r.id&&Number(p.date)>=newest&&!p.copy_history?.length);
  for(const p of posts)markOzon(p,'проверка автора: '+r.url);
+ r.ozon_checked_at=timestamp();
+ r.ozon_scanned_posts=(r.ozon_scanned_posts||0)+posts.length;
+ mark(r);
  if(posts.length<2){r.qualification='rejected';r.reason='Мало оригинальных постов за 180 дней';return;}
  const mv=median(posts.map(p=>num(p.views?.count)).filter(v=>v!==null));
  if(mv===null){r.qualification='rejected';r.reason='Нет данных о просмотрах';return;}
@@ -455,17 +467,28 @@ el('fastFind').addEventListener('click',async()=>{
 });
 el('verifyAuthors').addEventListener('click',async()=>{
  if(busy)return;setBusy(true);halt=false;stopRequested=false;lastProblems=[];
- const started=Date.now(),max=Number(el('authorCandidateLimit').value),sample=Number(el('authorSample').value),minViews=Number(el('authorMinViews').value);
+ const started=Date.now(),max=Number(el('authorCandidateLimit').value),
+  ozonActive=el('ozonFilter').value!=='off',
+  sample=Math.max(Number(el('authorSample').value)||20,ozonActive?(Number(el('ozonPostCount').value)||40):0),
+  minViews=Number(el('authorMinViews').value);
  try{
   if(!loaded&&ghToken())await loadBase({silent:true});
   if(!store.size)throw Error('База пуста. Сначала выполните быстрый поиск.');
-  const list=[...store.values()].filter(r=>eligible(r))
-    .filter(r=>el('authorForceRecheck').checked||(!fresh(r.checked_at,checkedFreshDays)&&!fresh(r.error_at,1)))
+  // НЕ применяем Ozon-фильтр до загрузки постов: иначе получается замкнутый круг.
+  const list=[...store.values()].filter(r=>eligible(r,true))
+    .filter(r=>{
+     if(el('authorForceRecheck').checked)return true;
+     if(fresh(r.error_at,1))return false;
+     return !fresh(r.checked_at,checkedFreshDays)||(ozonActive&&!fresh(r.ozon_checked_at,7));
+    })
     .sort(scoreCompare).slice(0,max);
-  if(!list.length){info.textContent='Новых для проверки нет. База уже проверена недавно; можно включить повторную проверку.';return;}
+  if(!list.length){
+   info.textContent='В текущем режиме нет новых кандидатов для проверки. Если нужны повторные данные, включите «Перепроверить уже проверенных».';
+   return;
+  }
   const token=await vkToken();
   await refreshProfiles(list.map(r=>r.id),token,Number(el('delay').value));
-  const selected=list.filter(r=>eligible(r));
+  const selected=list.filter(r=>eligible(r,true));
   progress.max=Math.max(1,selected.length);progress.value=0;
   let qualifiedNow=0,checked=0;
   for(const r of selected){
@@ -475,7 +498,7 @@ el('verifyAuthors').addEventListener('click',async()=>{
    try{
     await inspect(r,token,minViews,sample);
     r.checked_at=timestamp();
-    if(r.qualification==='qualified')qualifiedNow++;
+    if(r.qualification==='qualified'&&eligible(r))qualifiedNow++;
     mark(r);
    }catch(e){r.qualification='error';r.reason=fmtError(e);r.error_at=timestamp();mark(r);lastProblems.push('Автор '+r.id+': '+fmtError(e));}
    checked++;progress.value=checked;
@@ -483,7 +506,8 @@ el('verifyAuthors').addEventListener('click',async()=>{
   }
   const saved=await saveIfEnabled();
   info.textContent=(halt?'Проверка остановлена.':'Проверка завершена.')+
-   '\nПроверено: '+checked+'; подошло новых: '+qualifiedNow+'; всего проверенных подходящих: '+[...store.values()].filter(r=>r.qualification==='qualified').length+
+   '\nПроверено: '+checked+'; из них под текущий фильтр подошло: '+qualifiedNow+
+   '; всего подходящих в этом режиме: '+[...store.values()].filter(r=>r.qualification==='qualified'&&eligible(r)).length+
    '\nПрошло '+Math.round((Date.now()-started)/1000)+' сек. · '+saved;
   if(el('syncEnabled').checked&&ghToken()&&authorPostRecords.length){
    // Отдельно сохраняем полные тексты подтверждённых авторов для анализа.
