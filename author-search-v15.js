@@ -35,7 +35,7 @@ function targetIsPeople(){return el('authorTarget').value==='people';}
 function groupSignals(r){
  const title=String(r.name||'').toLocaleLowerCase('ru-RU');
  const description=String(r.description||'').toLocaleLowerCase('ru-RU');
- const authorName=/(?:личн(?:ый|ая|ое)\s+блог|авторск(?:ий|ая|ое)|семейн(?:ый|ая)\s+блог|блог\s+(?:мамы|папы|семьи|девушки)|мамин\s+блог|дневник|наша\s+семья|моя\s+жизнь|истории\s+из\s+жизни|многодетн|жизнь\s+в\s+деревне|путь\s+к\s+себе)/iu;
+ const authorName=/(?:личн(?:ый|ая|ое)\s+блог|авторск(?:ий|ая|ое)|семейн(?:ый|ая)\s+блог|блог\s+(?:мамы|папы|семьи|девушки)|мама\s+блог|мамин\s+блог|блогер|дневник|наша\s+семья|моя\s+жизнь|истории\s+из\s+жизни|многодетн|жизнь\s+в\s+деревне|путь\s+к\s+себе)/iu;
  const authorDesc=/(?:я\s+рассказываю|делюсь\s+(?:своей|своими)|личный\s+блог|автор\s+этого\s+блога|мой\s+дневник|моя\s+семья|от\s+первого\s+лица|мой\s+опыт|истории\s+из\s+жизни)/iu;
  const commercial=/(?:пункт\s+выдачи|\bпвз\b|администраци|официальн(?:ая|ый|ое)\s+страниц|муниципальн|автосервис|продаж[аи]|товары\s+оптом|вакансии|магазин|салон\s+красоты|доставка\s+еды|объявления|новости\s+района|знакомства\s+рядом|библиотек[аи]|колледж|школа|маркетплейс\s+товаров)/iu;
  let score=0;
@@ -122,7 +122,7 @@ function updateView(){
  el('candidateCount').textContent=String(eligibleAll.length);
  el('candidateExport').disabled=!store.size;
  el('authorExport').disabled=!qualified.length;
- el('authorPostExport').disabled=!authorPostRecords.length;
+ el('authorPostExport').disabled=!authorPostRecords.some(r=>targetIsPeople()?Number(r.author_id)>0:Number(r.author_id)<0);
 }
 function parseTokenRepository(){
  const repo=normRepo();
@@ -363,15 +363,16 @@ function exportRows(items,cols,name){
  a.href=url;a.download=name+'_'+new Date().toISOString().slice(0,10)+'.csv';
  document.body.append(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),1000);
 }
-el('candidateExport').addEventListener('click',()=>exportRows([...store.values()].sort(scoreCompare),candidateFields(),'vk_candidates'));
+el('candidateExport').addEventListener('click',()=>exportRows([...store.values()].filter(eligible).sort(scoreCompare),candidateFields(),targetIsPeople()?'vk_personal_authors_candidates':'vk_author_communities_candidates'));
 el('authorExport').addEventListener('click',()=>exportRows([...store.values()].filter(r=>r.qualification==='qualified'&&eligible(r)),
  ['name','url','kind','followers','median_views','views_per_follower','engagement_per_view_percent','story_ratio','original_posts_180d','signals','sources','checked_at'],'vk_authors'));
-el('authorPostExport').addEventListener('click',()=>exportRows(authorPostRecords,['author_id','author_name',...csvFields],'vk_author_posts'));
+el('authorPostExport').addEventListener('click',()=>exportRows(authorPostRecords.filter(r=>targetIsPeople()?Number(r.author_id)>0:Number(r.author_id)<0),['author_id','author_name',...csvFields],targetIsPeople()?'vk_personal_author_posts':'vk_community_author_posts'));
 el('stopAuthors').addEventListener('click',()=>{halt=true;stopRequested=true;el('stopAuthors').disabled=true;info.textContent+=' \nОстанавливаем после текущего запроса...';});
 function setBusy(value){
  busy=value;running=value;
  for(const id of ['fastFind','verifyAuthors','loadAuthorBase'])el(id).disabled=value;
  el('stopAuthors').disabled=!value;
+ el('authorTarget').disabled=value;
 }
 function showProblems(){
  errbox.textContent=lastProblems.length?'Ограничения или ошибки ('+lastProblems.length+'):\n'+lastProblems.slice(0,18).join('\n'):'Ошибок VK API не обнаружено';
@@ -408,7 +409,7 @@ el('verifyAuthors').addEventListener('click',async()=>{
   if(!loaded&&ghToken())await loadBase({silent:true});
   if(!store.size)throw Error('База пуста. Сначала выполните быстрый поиск.');
   const list=[...store.values()].filter(eligible)
-    .filter(r=>el('authorForceRecheck').checked||!fresh(r.checked_at,checkedFreshDays))
+    .filter(r=>el('authorForceRecheck').checked||(!fresh(r.checked_at,checkedFreshDays)&&!fresh(r.error_at,1)))
     .sort(scoreCompare).slice(0,max);
   if(!list.length){info.textContent='Новых для проверки нет. База уже проверена недавно; можно включить повторную проверку.';return;}
   const token=await vkToken();
@@ -425,7 +426,7 @@ el('verifyAuthors').addEventListener('click',async()=>{
     r.checked_at=timestamp();
     if(r.qualification==='qualified')qualifiedNow++;
     mark(r);
-   }catch(e){r.qualification='error';r.reason=fmtError(e);mark(r);lastProblems.push('Автор '+r.id+': '+fmtError(e));}
+   }catch(e){r.qualification='error';r.reason=fmtError(e);r.error_at=timestamp();mark(r);lastProblems.push('Автор '+r.id+': '+fmtError(e));}
    checked++;progress.value=checked;
    updateView();await sleep(Number(el('delay').value));
   }
