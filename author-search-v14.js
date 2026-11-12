@@ -45,6 +45,7 @@ function add(id,kind,source,post=null,weight=1){
 function fromPost(post,source){
  if(!post)return;
  if(post.owner_id)add(post.owner_id,'тематический пост',source,post,8);
+ if(Number(post.owner_id)<0&&Number(post.from_id)>0)add(post.from_id,'публикация участника сообщества',source,post,7);
  if(Number(post.owner_id)<0&&Number(post.signer_id)>0)add(post.signer_id,'подписанный автор',source,post,7);
  for(const cp of (post.copy_history||[]).slice(0,2))add(cp.owner_id??cp.from_id,'первоисточник репоста',source,post,5);
 }
@@ -166,6 +167,7 @@ async function saveBase(){
   await gh(path,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
   dirty.delete(i);saved++;
  }
+ updateView();
  el('syncStatus').textContent='Накопительная база сохранена в закрытый GitHub: '+store.size+' кандидатов, обновлено файлов: '+saved+'.';
  return saved;
 }
