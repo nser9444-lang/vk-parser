@@ -10,7 +10,7 @@
 </head>
 <body><main>
 <h1>Парсер публичных постов ВК</h1>
-<div class="sub">Версия 1.6 · приложение 54892559 · сбор через VK Bridge · выгрузка CSV или отправка результатов в закрытый GitHub</div>
+<div class="sub">Версия 1.6.1 · приложение 54892559 · сбор через VK Bridge · выгрузка CSV или отправка результатов в закрытый GitHub</div>
 <section class="panel"><h2>1. Источники</h2>
 <label for="sources">Ссылки на публичные страницы и сообщества, по одной на строку</label>
 <textarea id="sources" spellcheck="false">https://vk.ru/irina_na_smene
@@ -37,7 +37,7 @@ https://vk.ru/club241887015</textarea>
 <section class="panel"><h2>4. Предпросмотр <span class="pill" id="rows">0 записей</span></h2><div class="table-wrap"><table><thead><tr><th>Дата</th><th>Источник</th><th>Текст поста</th><th>Лайки</th><th>Просмотры</th><th>Ссылка</th></tr></thead><tbody id="preview"><tr><td colspan="6">Данных пока нет</td></tr></tbody></table></div><p class="hint">CSV содержит полные тексты, ссылки, даты, статистику, тип публикации, вложения и идентификаторы. В таблице показаны первые 30 постов.</p></section>
 
 <section class="panel" id="authorFinder">
-<h2>5. Поиск авторов и партнёрских ссылок Ozon — версия 1.6</h2>
+<h2>5. Поиск авторов и партнёрских ссылок Ozon — версия 1.6.1</h2>
 <p class="hint">Отдельно ищем личных блогеров и авторские сообщества. Фильтр Ozon ищет реальные ссылки с параметром advRef и отдельно помечает неоднозначные короткие ссылки. Сохраняем найденные ссылки и посты в накопительную базу GitHub.</p>
 <div class="actions"><button id="loadAuthorBase" class="secondary" type="button">Загрузить базу из GitHub</button></div>
 <div class="grid"><div><label for="authorTarget">Кого ищем</label>
@@ -82,7 +82,7 @@ https://vk.ru/club241887015</textarea></div>
 <div class="grid">
 <div><label for="ozonPostCount">Последних постов каждого</label>
 <select id="ozonPostCount"><option value="20">20</option><option value="40" selected>40</option><option value="80">80</option><option value="100">100</option></select></div>
-<div class="hint">ВК может не индексировать внешние ссылки. Вторая кнопка проверяет посты уже найденных кандидатов напрямую и обычно надёжнее.</div>
+<div class="hint">Новые кандидаты сначала могут быть скрыты строгим фильтром. Нажми «Проверить Ozon-ссылки у кандидатов»; «2. Проверить лучших» также изучит ссылки и просмотры.</div>
 </div>
 <div class="actions">
 <button id="ozonFind" class="secondary" type="button">Найти новых авторов по ссылкам Ozon</button>
@@ -315,5 +315,5 @@ start.addEventListener('click',async()=>{
 if(typeof vkBridge!=='undefined')vkBridge.send('VKWebAppInit').catch(e=>{status.textContent='Ошибка инициализации VK Bridge: '+safeError(e);});
 </script>
 <script src="./ozon-ref-v16.js"></script>
-<script src="./author-search-v16.js"></script>
+<script src="./author-search-v16.js?v=1.6.1"></script>
 </body></html>
