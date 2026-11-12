@@ -10,7 +10,7 @@
 </head>
 <body><main>
 <h1>Парсер публичных постов ВК</h1>
-<div class="sub">Версия 1.7 · приложение 54892559 · сбор через VK Bridge · выгрузка CSV или отправка результатов в закрытый GitHub</div>
+<div class="sub">Версия 1.8 · приложение 54892559 · сбор через VK Bridge · выгрузка CSV или отправка результатов в закрытый GitHub</div>
 <section class="panel"><h2>1. Источники</h2>
 <label for="sources">Ссылки на публичные страницы и сообщества, по одной на строку</label>
 <textarea id="sources" spellcheck="false">https://vk.ru/irina_na_smene
@@ -331,5 +331,6 @@ start.addEventListener('click',async()=>{
 if(typeof vkBridge!=='undefined')vkBridge.send('VKWebAppInit').catch(e=>{status.textContent='Ошибка инициализации VK Bridge: '+safeError(e);});
 </script>
 <script src="./ozon-ref-v16.js"></script>
-<script src="./author-search-v17.js?v=1.7"></script>
+<script src="./author-search-v18.js?v=1.8
+</script><script src="./story-hunter-v18.js?v=1.8"></script>
 </body></html>
