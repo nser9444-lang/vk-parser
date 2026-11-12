@@ -97,7 +97,7 @@ download.addEventListener('click',saveCSV);
 downloadComments.addEventListener('click',()=>{
  if(!commentsRecords.length)return;
  const lines=[commentFields.map(csvCell).join(';'),...commentsRecords.map(p=>commentFields.map(k=>csvCell(p[k])).join(';'))];
- const blob=new Blob(['\\ufeff'.replace('\\ufeff','\ufeff')+lines.join('\r\n')],{type:'text/csv;charset=utf-8;'});
+ const blob=new Blob(['\ufeff'+lines.join('\r\n')],{type:'text/csv;charset=utf-8;'});
  const url=URL.createObjectURL(blob),a=document.createElement('a');
  a.href=url;a.download='vk_comments_'+new Date().toISOString().slice(0,10)+'.csv';
  document.body.append(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),1000);
@@ -137,9 +137,9 @@ start.addEventListener('click',async()=>{
     const postsToCheck=sourcePosts.slice(0,Number($('commentPosts').value));
     for(let j=0;j<postsToCheck.length&&!stopRequested;j++){
      const post=postsToCheck[j];
-     status.textContent='Комментарии '+src.key+': '+(j+1)+'/'+postsToCheck.length+' постов\\nСохранено комментариев и ответов: '+commentsRecords.length;
+     status.textContent='Комментарии '+src.key+': '+(j+1)+'/'+postsToCheck.length+' постов\nСохранено комментариев и ответов: '+commentsRecords.length;
      try{await fetchCommentsFor(post,src,token,Number($('commentLimit').value),delay,seenComments);}
-     catch(e){if(!stopRequested){problemList.push('Комментарии '+src.key+' / '+post.id+': '+safeError(e));errors.textContent='Проблемы по источникам:\\n'+problemList.join('\\n');}}
+     catch(e){if(!stopRequested){problemList.push('Комментарии '+src.key+' / '+post.id+': '+safeError(e));errors.textContent='Проблемы по источникам:\n'+problemList.join('\n');}}
      $('commentCounter').textContent='Комментариев и ответов: '+commentsRecords.length;
      downloadComments.disabled=!commentsRecords.length;
      await wait(delay);
