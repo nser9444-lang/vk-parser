@@ -124,7 +124,7 @@ function reachSettings(){
  return {median:Number(el('reachMinMedian').value)||10000,ratio:Number(el('reachMinRatio').value)||3};
 }
 function ordinaryPost(p){
- if(p?.marked_as_ads===1||p?.marked_as_ads===true||p?.copy_history?.length)return false;
+ if(Number(p?.marked_as_ads)===1||p?.copy_history?.length)return false;
  if(/https?:\/\/|www\.[a-z0-9.-]+/iu.test(String(p?.text||'')))return false;
  if((p?.attachments||[]).some(a=>a?.type==='link'||a?.type==='market'))return false;
  return true;
@@ -162,6 +162,7 @@ function reachState(r){
  if(!r.organic_baseline_checked_at)return 'не проверено';
  if((r.ordinary_posts_count||0)<6)return 'мало обычных постов';
  if(!(r.ozon_ref_hits>0))return 'нет advRef в выборке';
+ if(r.followers==null||r.followers<=0)return 'нужно уточнить число подписчиков';
  if(isSuper(r))return 'КАНДИДАТ В ТОП';
  const cfg=reachSettings();
  if(r.ordinary_median_views<cfg.median)return 'обычные просмотры ниже порога';
