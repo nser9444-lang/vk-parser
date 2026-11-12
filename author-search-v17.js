@@ -116,7 +116,70 @@ function eligible(r,ignoreOzon=false){
  }
  return true;
 }
+
+/* Публичные просмотры не позволяют установить, куплено ли продвижение.
+ * Считаем лишь медиану записей без очевидных рекламных маркеров, без внешних ссылок,
+ * с отдельным учетом постов с advRef. Это индикатор, НЕ доказательство органики. */
+function reachSettings(){
+ return {median:Number(el('reachMinMedian').value)||10000,ratio:Number(el('reachMinRatio').value)||3};
+}
+function ordinaryPost(p){
+ if(p?.marked_as_ads===1||p?.marked_as_ads===true||p?.copy_history?.length)return false;
+ if(/https?:\/\/|www\.[a-z0-9.-]+/iu.test(String(p?.text||'')))return false;
+ if((p?.attachments||[]).some(a=>a?.type==='link'||a?.type==='market'))return false;
+ return true;
+}
+function assessReach(posts,r){
+ const ord=posts.filter(p=>ordinaryPost(p)&&num(p.views?.count)!==null);
+ const ads=posts.filter(p=>ozonDetector()?.detect(p).grade==='advref'&&num(p.views?.count)!==null);
+ const med=median(ord.map(p=>Number(p.views.count)));
+ const advertMedian=median(ads.map(p=>Number(p.views.count)));
+ const subs=r.followers>0?r.followers:null;
+ const threshold=Math.max(10000,(subs||0)*2);
+ const repeated=ord.filter(p=>Number(p.views.count)>=threshold).length;
+ r.organic_baseline_checked_at=timestamp();
+ r.ordinary_posts_count=ord.length;
+ r.ordinary_median_views=rate(med,0);
+ r.ordinary_views_per_follower=subs&&med!==null?rate(med/subs,2):null;
+ r.ordinary_repeat_count=repeated;
+ r.ordinary_median_engagement=rate(median(ord.map(p=>{
+  const v=Number(p.views.count);
+  return v>0?100*((Number(p.likes?.count)||0)+(Number(p.comments?.count)||0)+(Number(p.reposts?.count)||0))/v:null;
+ }).filter(x=>x!==null)),2);
+ r.ozon_posts_in_sample=ads.length;
+ r.ozon_median_views=rate(advertMedian,0);
+ r.reach_sample_count=posts.length;
+ mark(r);
+}
+function isSuper(r){
+ const cfg=reachSettings();
+ return (r.ozon_ref_hits||0)>=1&&(r.ordinary_posts_count||0)>=6&&
+  r.ordinary_median_views>=cfg.median&&
+  r.ordinary_views_per_follower>=cfg.ratio&&
+  (r.ordinary_repeat_count||0)>=3;
+}
+function reachState(r){
+ if(!r.organic_baseline_checked_at)return 'не проверено';
+ if((r.ordinary_posts_count||0)<6)return 'мало обычных постов';
+ if(!(r.ozon_ref_hits>0))return 'нет advRef в выборке';
+ if(isSuper(r))return 'КАНДИДАТ В ТОП';
+ const cfg=reachSettings();
+ if(r.ordinary_median_views<cfg.median)return 'обычные просмотры ниже порога';
+ if((r.ordinary_views_per_follower||0)<cfg.ratio)return 'недостаточно × подписчиков';
+ if((r.ordinary_repeat_count||0)<3)return 'мало повторений высоких просмотров';
+ return 'нужна дополнительная проверка';
+}
+function reachCompare(a,b){
+ const x=Number(isSuper(b))-Number(isSuper(a));if(x)return x;
+ const evidence=(Number(b.ozon_ref_hits>0)-Number(a.ozon_ref_hits>0));if(evidence)return evidence;
+ return (b.ordinary_median_views??0)-(a.ordinary_median_views??0)||
+  (b.ordinary_views_per_follower??0)-(a.ordinary_views_per_follower??0);
+}
+
 function scoreCompare(a,b){
+ if(a.organic_baseline_checked_at||b.organic_baseline_checked_at){
+  const priority=Number(isSuper(b))-Number(isSuper(a));if(priority)return priority;
+ }
  if(el('ozonFilter').value!=='off'){
   const diff=(b.ozon_ref_hits||0)-(a.ozon_ref_hits||0);
   if(diff)return diff;
@@ -137,11 +200,12 @@ function updateView(){
  // В строгом режиме скрытые профили могут быть НЕ ПРОВЕРЕНЫ на ссылки, а не нерелевантны.
  const uncheckedOzon=el('ozonFilter').value==='off'?0:
   all.filter(r=>eligible(r,true)&&!fresh(r.ozon_checked_at,7)).length;
- const qualified=all.filter(r=>r.qualification==='qualified'&&eligible(r)).sort((a,b)=>(b.views_per_follower??-1)-(a.views_per_follower??-1));
+ const qualified=all.filter(r=>r.qualification==='qualified'&&eligible(r)).sort(reachCompare);
  const peopleCount=all.filter(r=>r.id>0).length,groupCount=all.filter(r=>r.id<0).length;
  const strong=all.filter(r=>(r.ozon_ref_hits||0)>0).length,possible=all.filter(r=>(r.ozon_possible_hits||0)>0).length;
  el('baseCount').textContent='Всего: '+store.size+' · личные страницы: '+peopleCount+' · сообщества: '+groupCount+
   '\nС маркером Ozon advRef: '+strong+' · с вероятной короткой товарной ссылкой: '+possible+
+  '\nКандидатов с высокими просмотрами обычных постов + advRef: '+all.filter(r=>isSuper(r)).length+
   '\nВ выбранном направлении с фильтрами: '+eligibleAll.length+' · проверенных подходящих: '+qualified.length+
   (el('ozonFilter').value==='off'?'':' · ещё не проверено на Ozon: '+uncheckedOzon);
  el('targetHint').textContent=targetIsPeople()
@@ -149,7 +213,7 @@ function updateView(){
   :'Ищем вероятные авторские сообщества; обычные магазины и учреждения стараемся отсекать по названию и описанию. Оценка предварительная.';
  const tbody=el('candidateRows');tbody.replaceChildren();
  if(!eligibleAll.length){
-  let cell=tbody.insertRow().insertCell();cell.colSpan=9;
+  let cell=tbody.insertRow().insertCell();cell.colSpan=11;
   cell.textContent=uncheckedOzon
    ?'Под строгим фильтром пока 0 совпадений, но '+uncheckedOzon+' кандидатов ещё не проверено на ссылки Ozon. Нажмите «Проверить Ozon-ссылки у кандидатов» либо «2. Проверить лучших».'
    :'Нет подтверждённых совпадений с текущим фильтром среди проверенных страниц. Можно запустить поиск новых.';
@@ -157,7 +221,7 @@ function updateView(){
  for(const r of eligibleAll.slice(0,45)){
   const tr=tbody.insertRow();const state=r.qualification==='qualified'?'подошёл':r.qualification==='rejected'?'не подошёл':r.qualification==='error'?'ошибка проверки':'не проверен';
   const badge=(r.ozon_ref_hits||0)>0?'advRef: '+r.ozon_ref_hits:(r.ozon_possible_hits||0)>0?'Возможно: '+r.ozon_possible_hits:'—';
-  for(const val of [r.name||('ID '+r.id),r.kind==='user'?'Личный профиль':(authorGroupLikely(r)?'Вероятный авторский':'Не классифицирован'),r.followers??'неизвестно',r.score??0,badge,r.seed_views??'—',state]){const td=tr.insertCell();td.textContent=val;}
+  for(const val of [r.name||('ID '+r.id),r.kind==='user'?'Личный профиль':(authorGroupLikely(r)?'Вероятный авторский':'Не классифицирован'),r.followers??'неизвестно',r.score??0,r.ordinary_median_views??'—',r.ordinary_views_per_follower??'—',badge,r.seed_views??'—',state]){const td=tr.insertCell();td.textContent=val;}
   const proof=tr.insertCell();
   if(r.ozon_sample_post_url){
    const a=document.createElement('a');a.href=r.ozon_sample_post_url;a.target='_blank';a.rel='noopener noreferrer';a.textContent='Пост';proof.append(a);
@@ -180,6 +244,19 @@ function updateView(){
  el('candidateExport').disabled=!store.size;
  el('authorExport').disabled=!qualified.length;
  el('authorPostExport').disabled=!authorPostRecords.some(r=>targetIsPeople()?Number(r.author_id)>0:Number(r.author_id)<0);
+ const superRows=el('reachRows');superRows.replaceChildren();
+ const candidates=all.filter(r=>eligible(r)&&r.organic_baseline_checked_at)
+   .sort(reachCompare).slice(0,35);
+ for(const r of candidates){
+  const tr=superRows.insertRow();
+  for(const v of [r.name||('ID '+r.id),r.followers??'—',r.ordinary_posts_count??'—',
+   r.ordinary_median_views??'—',r.ordinary_views_per_follower??'—',r.ordinary_repeat_count??'—',
+   r.ozon_ref_hits??0,r.ozon_median_views??'—',reachState(r)])tr.insertCell().textContent=v;
+  const td=tr.insertCell(),link=document.createElement('a');
+  link.href=r.url;link.textContent='Открыть';link.rel='noopener noreferrer';link.target='_blank';td.append(link);
+ }
+ if(!candidates.length){const td=superRows.insertRow().insertCell();td.colSpan=10;td.textContent='Оценок пока нет. Запусти «2. Проверить лучших», чтобы измерить просмотры обычных постов и рекламных интеграций.';}
+ el('reachCount').textContent=String(candidates.length);
 }
 function parseTokenRepository(){
  const repo=normRepo();
@@ -396,6 +473,7 @@ async function inspect(r,token,minimum,samples){
  r.ozon_checked_at=timestamp();
  r.ozon_scanned_posts=(r.ozon_scanned_posts||0)+posts.length;
  mark(r);
+ assessReach(posts,r);
  if(posts.length<2){r.qualification='rejected';r.reason='Мало оригинальных постов за 180 дней';return;}
  const mv=median(posts.map(p=>num(p.views?.count)).filter(v=>v!==null));
  if(mv===null){r.qualification='rejected';r.reason='Нет данных о просмотрах';return;}
@@ -414,7 +492,7 @@ async function inspect(r,token,minimum,samples){
  }
 }
 function candidateFields(){
- return ['id','kind','name','url','followers','description','closed','score','hits','seed_views','ozon_ref_hits','ozon_possible_hits','ozon_sample_link','ozon_sample_post_url','ozon_checked_at','ozon_scanned_posts','qualification','reason','checked_at','median_views','views_per_follower','engagement_per_view_percent','story_ratio','original_posts_180d','signals','sources','first_seen','last_seen','example_post_url'];
+ return ['id','kind','name','url','followers','description','closed','score','hits','seed_views','ordinary_posts_count','ordinary_median_views','ordinary_views_per_follower','ordinary_repeat_count','ozon_posts_in_sample','ozon_median_views','organic_baseline_checked_at','ozon_ref_hits','ozon_possible_hits','ozon_sample_link','ozon_sample_post_url','ozon_checked_at','ozon_scanned_posts','qualification','reason','checked_at','median_views','views_per_follower','engagement_per_view_percent','story_ratio','original_posts_180d','signals','sources','first_seen','last_seen','example_post_url'];
 }
 function exportRows(items,cols,name){
  if(!items.length)return;
@@ -427,7 +505,7 @@ function exportRows(items,cols,name){
 }
 el('candidateExport').addEventListener('click',()=>exportRows([...store.values()].filter(r=>eligible(r)).sort(scoreCompare),candidateFields(),targetIsPeople()?'vk_personal_authors_candidates':'vk_author_communities_candidates'));
 el('authorExport').addEventListener('click',()=>exportRows([...store.values()].filter(r=>r.qualification==='qualified'&&eligible(r)),
- ['name','url','kind','followers','median_views','views_per_follower','engagement_per_view_percent','story_ratio','original_posts_180d','ozon_ref_hits','ozon_possible_hits','ozon_sample_post_url','ozon_sample_link','signals','sources','checked_at'],'vk_authors'));
+ ['name','url','kind','followers','median_views','views_per_follower','engagement_per_view_percent','story_ratio','original_posts_180d','ordinary_posts_count','ordinary_median_views','ordinary_views_per_follower','ordinary_repeat_count','ozon_posts_in_sample','ozon_median_views','ozon_ref_hits','ozon_possible_hits','ozon_sample_post_url','ozon_sample_link','signals','sources','checked_at'],'vk_authors'));
 el('authorPostExport').addEventListener('click',()=>exportRows(authorPostRecords.filter(r=>targetIsPeople()?Number(r.author_id)>0:Number(r.author_id)<0),['author_id','author_name',...csvFields],targetIsPeople()?'vk_personal_author_posts':'vk_community_author_posts'));
 el('stopAuthors').addEventListener('click',()=>{halt=true;stopRequested=true;el('stopAuthors').disabled=true;info.textContent+=' \nОстанавливаем после текущего запроса...';});
 function setBusy(value){
@@ -479,7 +557,7 @@ el('verifyAuthors').addEventListener('click',async()=>{
     .filter(r=>{
      if(el('authorForceRecheck').checked)return true;
      if(fresh(r.error_at,1))return false;
-     return !fresh(r.checked_at,checkedFreshDays)||(ozonActive&&!fresh(r.ozon_checked_at,7));
+     return !fresh(r.checked_at,checkedFreshDays)||!r.organic_baseline_checked_at||(ozonActive&&!fresh(r.ozon_checked_at,7));
     })
     .sort(scoreCompare).slice(0,max);
   if(!list.length){
@@ -515,7 +593,11 @@ el('verifyAuthors').addEventListener('click',async()=>{
      author_id:r.id,author_url:r.url,name:r.name,type:r.kind==='user'?'личный профиль':'сообщество',
      followers:r.followers,median_views:r.median_views,views_per_follower:r.views_per_follower,
      engagement_per_view_percent:r.engagement_per_view_percent,story_ratio:r.story_ratio,
-     original_posts_180d:r.original_posts_180d,discovery_sources:r.sources.join(' | ')
+     original_posts_180d:r.original_posts_180d,ordinary_posts_count:r.ordinary_posts_count,
+     ordinary_median_views:r.ordinary_median_views,ordinary_views_per_follower:r.ordinary_views_per_follower,
+     ordinary_repeat_count:r.ordinary_repeat_count,ozon_posts_in_sample:r.ozon_posts_in_sample,
+     ozon_median_views:r.ozon_median_views,super_candidate:isSuper(r),
+     organic_verified:false,discovery_sources:r.sources.join(' | ')
    }));
    try{await githubSaveResults();info.textContent+='\nТексты проверенных авторов сохранены отдельной выгрузкой.';}
    catch(e){info.textContent+='\nНе удалось сохранить тексты: '+fmtError(e);}
@@ -632,6 +714,8 @@ el('authorTarget').addEventListener('change',()=>{
  updateView();
 });
 el('ozonFilter').addEventListener('change',updateView);
+el('reachMinMedian').addEventListener('change',updateView);
+el('reachMinRatio').addEventListener('change',updateView);
 el('authorExcludeCommercial').addEventListener('change',updateView);
 el('authorGroupStrict').addEventListener('change',updateView);
 el('authorMaxSubs').addEventListener('change',updateView);
