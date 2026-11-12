@@ -10,7 +10,7 @@
 </head>
 <body><main>
 <h1>Парсер публичных постов ВК</h1>
-<div class="sub">Версия 1.2 · приложение 54892559 · сбор через VK Bridge · выгрузка CSV или отправка результатов в закрытый GitHub</div>
+<div class="sub">Версия 1.2.1 · приложение 54892559 · сбор через VK Bridge · выгрузка CSV или отправка результатов в закрытый GitHub</div>
 <section class="panel"><h2>1. Источники</h2>
 <label for="sources">Ссылки на публичные страницы и сообщества, по одной на строку</label>
 <textarea id="sources" spellcheck="false">https://vk.ru/irina_na_smene
@@ -27,7 +27,7 @@ https://vk.ru/club241887015</textarea>
 <section class="panel"><h2>2. Автоматическая передача результатов для анализа</h2>
 <label><input type="checkbox" id="syncEnabled" style="width:auto;margin-right:7px">После сбора отправлять результаты в закрытый GitHub</label>
 <div class="grid">
-<div><label for="syncRepo">Закрытый репозиторий (владелец/название)</label><input id="syncRepo" placeholder="nser9444-lang/vk-parser-data" autocomplete="off"></div>
+<div><label for="syncRepo">Закрытый репозиторий (владелец/название)</label><input id="syncRepo" value="nser9444-lang/vk-parser-data" placeholder="nser9444-lang/vk-parser-data" autocomplete="off"></div>
 <div><label for="syncToken">GitHub Fine-grained token (Contents: Read and write)</label><input id="syncToken" type="password" placeholder="Вставьте токен только здесь" autocomplete="off" spellcheck="false"></div>
 </div>
 <p class="hint">Создайте отдельный <b>Private</b> репозиторий. Для токена выберите доступ только к нему и разрешение Contents: Read and write. Токен не сохраняется в браузере, GitHub или CSV. Не отправляйте его в чат. Встроенная проверка не позволит загружать данные в публичный репозиторий.</p>
@@ -125,8 +125,13 @@ function encodeUTF8Base64(value){
  return btoa(binary);
 }
 async function githubSaveResults(){
- const repo=$('syncRepo').value.trim(),ghToken=$('syncToken').value.trim(),syncStatus=$('syncStatus');
- if(!/^[a-zA-Z0-9_.-]+\/[a-zA-Z0-9_.-]+$/.test(repo))throw Error('Укажите репозиторий в формате владелец/название');
+ const syncStatus=$('syncStatus'),ghToken=$('syncToken').value.trim();
+ let repo=$('syncRepo').value.normalize('NFKC').trim();
+ repo=repo.replace(/[\u200B-\u200D\uFEFF]/g,'').replace(/[\u2010-\u2015\u2212]/g,'-').replace(/\s*\/\s*/g,'/');
+ repo=repo.replace(/^https?:\/\/(?:www\.)?github\.com\//i,'').replace(/\/?$/,'').replace(/\.git$/i,'');
+ $('syncRepo').value=repo;
+ const parts=repo.split('/');
+ if(parts.length!==2||!parts.every(x=>/^[a-zA-Z0-9_.-]+$/.test(x)))throw Error('Некорректный адрес репозитория: '+JSON.stringify(repo)+'. Используйте nser9444-lang/vk-parser-data');
  if(!ghToken)throw Error('Введите временный GitHub токен в настройках передачи');
  const base='https://api.github.com/repos/'+repo;
  syncStatus.textContent='Проверяем, что репозиторий закрытый...';
