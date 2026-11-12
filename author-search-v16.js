@@ -44,6 +44,7 @@ function groupSignals(r){
  if(authorName.test(title))score+=4;
  if(authorDesc.test(description))score+=2;
  if((r.signals||[]).includes('подписанный автор'))score+=2;
+ if((r.signals||[]).includes('Ручной источник исследования'))score+=2;
  if((r.sources||[]).some(x=>x.startsWith('тема: ')))score+=1;
  if(commercial.test(title)||commercial.test(description.slice(0,240)))score-=8;
  return score;
