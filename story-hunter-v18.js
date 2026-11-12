@@ -20,7 +20,7 @@
  '<textarea id="huntText" placeholder="https://vk.ru/club241058375\nhttps://vk.ru/polinabiz" style="min-height:90px"></textarea>'+
  '<div class="grid"><div><label for="huntFile">Или загрузить CSV / TXT из Церебро</label><input id="huntFile" type="file" accept=".csv,.txt,text/plain,text/csv"></div>'+
  '<div><label for="huntScope">Очередь проверки</label><select id="huntScope"><option value="imported">Только добавленные ссылки</option><option value="all">Все кандидаты из базы GitHub</option></select></div></div>'+
- '<div class="grid"><div><label for="huntBatch">Количество авторов за запуск</label><select id="huntBatch"><option value="20">20</option><option value="50" selected>50</option><option value="100">100</option><option value="200">200</option></select></div>'+
+ '<div class="grid"><div><label for="huntBatch">Количество авторов за запуск</label><select id="huntBatch"><option value="20">20</option><option value="50" selected>50</option><option value="100">100</option><option value="200">200</option><option value="350">350 (все наши новые)</option><option value="1000">1000 (вся база)</option></select></div>'+
  '<div><label for="huntRecheck">Проверять повторно</label><select id="huntRecheck"><option value="no" selected>Только новые или старше 14 дней</option><option value="yes">Всех, в том числе проверенных</option></select></div></div>'+
  '<div class="actions"><button id="huntLoad" class="secondary" type="button">Загрузить базу GitHub</button><button id="huntImportSeeds" class="secondary" type="button">Загрузить наши 317 ссылок</button><button id="huntImport" type="button">1. Добавить ссылки</button><button id="huntScan" type="button">2. Проверить охваты</button><button id="huntExport" class="secondary" type="button">Скачать результаты CSV</button><button id="huntStop" class="danger" type="button" disabled>Стоп</button></div>'+
  '<progress id="huntProgress" value="0" max="1"></progress>'+
@@ -227,6 +227,7 @@
     }
     checked++;E('huntProgress').value=checked;
     persist();render();
+    if(rows().filter(x=>x.hunt_pass).length>=100){stopped=true;status('Цель 100 кандидатов по метрикам достигнута. Сохраняю результаты…');}
     if(checked%50===0)try{await ghSaveBase()}catch(e){errList.push('GitHub: '+(e.message||e));}
     await wait(Number(E('delay').value)||700);
    }
