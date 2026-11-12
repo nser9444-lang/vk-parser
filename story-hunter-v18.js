@@ -123,10 +123,10 @@
   try{
    const file=E('huntFile').files?.[0],s=E('huntText').value+'\n'+(file?await file.text():'');
    const found=extract(s);if(!found.length)throw Error('Не найдены ссылки. Выберите CSV или вставьте адреса ВК.');
-   let created=0,failed=0;for(const url of found){
+   let created=0,failed=0,rank=0;for(const url of found){rank++;
     try{const id=await idFor(url);if(!Number.isSafeInteger(id)||id===0){failed++;continue;}
     const was=map.has(id);
-    merge({id,hunt_imported:true,hunt_imported_at:now(),url:map.get(id)?.url||(id<0?'https://vk.ru/club'+(-id):'https://vk.ru/id'+id)});
+    merge({id,hunt_imported:true,hunt_priority:found.length-rank+1,hunt_imported_at:now(),url:map.get(id)?.url||(id<0?'https://vk.ru/club'+(-id):'https://vk.ru/id'+id)});
     if(!was)created++;
     }catch(e){failed++;errList.push('Импорт '+url+': '+(e.message||e));}
    }
@@ -197,6 +197,7 @@
      (x.followers==null||x.followers<=50000)&&
      (recheck||!x.hunt_checked_at||time-Date.parse(x.hunt_checked_at)>14*86400000))
      .sort((a,b)=>Number(!!b.hunt_imported)-Number(!!a.hunt_imported)||
+       (b.hunt_priority||0)-(a.hunt_priority||0)||
        (b.seed_views||0)-(a.seed_views||0)||
        (b.score||0)-(a.score||0)).slice(0,Number(E('huntBatch').value));
    if(!eligible.length){status('Новых кандидатов нет. Добавьте CSV, выберите «Все из базы» или включите перепроверку.');return;}
