@@ -64,7 +64,7 @@ function scoreCompare(a,b){return (b.score||0)-(a.score||0)||(b.seed_views||0)-(
 function fresh(date,days){return date&&Date.now()-Date.parse(date)<days*86400000;}
 function updateView(){
  const all=[...store.values()],eligibleAll=all.filter(eligible).sort(scoreCompare);
- const qualified=all.filter(r=>r.qualification==='qualified').sort((a,b)=>(b.views_per_follower??-1)-(a.views_per_follower??-1));
+ const qualified=all.filter(r=>r.qualification==='qualified'&&eligible(r)).sort((a,b)=>(b.views_per_follower??-1)-(a.views_per_follower??-1));
  el('baseCount').textContent=store.size+' кандидатов в базе · '+eligibleAll.length+' с учётом текущих фильтров · '+qualified.length+' проверенных авторов';
  const tbody=el('candidateRows');tbody.replaceChildren();
  if(!eligibleAll.length){let cell=tbody.insertRow().insertCell();cell.colSpan=7;cell.textContent='Пока кандидатов нет';}
@@ -94,7 +94,7 @@ function parseTokenRepository(){
 }
 async function gh(path,options={}){
  const repo=parseTokenRepository();
- const url='https://api.github.com/repos/'+repo+(path.startsWith('/')?path:'/'+path);
+ const url='https://api.github.com/repos/'+repo+(path?(path.startsWith('/')?path:'/'+path):'');
  const res=await fetch(url,{...options,headers:{'Authorization':'Bearer '+ghToken(),'Accept':'application/vnd.github+json','X-GitHub-Api-Version':'2022-11-28',...(options.headers||{})},cache:'no-store'});
  const body=await res.json().catch(()=>({}));
  if(res.status===404&&options.allow404)return null;
@@ -321,7 +321,7 @@ function exportRows(items,cols,name){
  document.body.append(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),1000);
 }
 el('candidateExport').addEventListener('click',()=>exportRows([...store.values()].sort(scoreCompare),candidateFields(),'vk_candidates'));
-el('authorExport').addEventListener('click',()=>exportRows([...store.values()].filter(r=>r.qualification==='qualified'),
+el('authorExport').addEventListener('click',()=>exportRows([...store.values()].filter(r=>r.qualification==='qualified'&&eligible(r)),
  ['name','url','kind','followers','median_views','views_per_follower','engagement_per_view_percent','story_ratio','original_posts_180d','signals','sources','checked_at'],'vk_authors'));
 el('authorPostExport').addEventListener('click',()=>exportRows(authorPostRecords,['author_id','author_name',...csvFields],'vk_author_posts'));
 el('stopAuthors').addEventListener('click',()=>{halt=true;stopRequested=true;el('stopAuthors').disabled=true;info.textContent+=' \nОстанавливаем после текущего запроса...';});
