@@ -133,7 +133,7 @@ function scoreCompare(a,b){
 }
 function fresh(date,days){return date&&Date.now()-Date.parse(date)<days*86400000;}
 function updateView(){
- const all=[...store.values()],eligibleAll=all.filter(eligible).sort(scoreCompare);
+ const all=[...store.values()],eligibleAll=all.filter(r=>eligible(r)).sort(scoreCompare);
  const qualified=all.filter(r=>r.qualification==='qualified'&&eligible(r)).sort((a,b)=>(b.views_per_follower??-1)-(a.views_per_follower??-1));
  const peopleCount=all.filter(r=>r.id>0).length,groupCount=all.filter(r=>r.id<0).length;
  const strong=all.filter(r=>(r.ozon_ref_hits||0)>0).length,possible=all.filter(r=>(r.ozon_possible_hits||0)>0).length;
@@ -453,13 +453,13 @@ el('verifyAuthors').addEventListener('click',async()=>{
  try{
   if(!loaded&&ghToken())await loadBase({silent:true});
   if(!store.size)throw Error('База пуста. Сначала выполните быстрый поиск.');
-  const list=[...store.values()].filter(eligible)
+  const list=[...store.values()].filter(r=>eligible(r))
     .filter(r=>el('authorForceRecheck').checked||(!fresh(r.checked_at,checkedFreshDays)&&!fresh(r.error_at,1)))
     .sort(scoreCompare).slice(0,max);
   if(!list.length){info.textContent='Новых для проверки нет. База уже проверена недавно; можно включить повторную проверку.';return;}
   const token=await vkToken();
   await refreshProfiles(list.map(r=>r.id),token,Number(el('delay').value));
-  const selected=list.filter(eligible);
+  const selected=list.filter(r=>eligible(r));
   progress.max=Math.max(1,selected.length);progress.value=0;
   let qualifiedNow=0,checked=0;
   for(const r of selected){
