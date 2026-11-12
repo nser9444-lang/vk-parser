@@ -34,7 +34,6 @@ function entry(id){
 function add(id,kind,source,post=null,weight=1){
  const before=store.has(Number(id)),r=entry(id);if(!r)return;
  if(!before)lastSearchIds.add(r.id);
- const maxSignalHits=30;
  r.hits=Math.min(50000,(r.hits||0)+1);
  r.score=Math.min(50000,(r.score||0)+Math.max(0,Math.min(8,weight)));
  r.seed_views=Math.max(r.seed_views||0,Number(post?.views?.count)||0);
@@ -51,7 +50,7 @@ function fromPost(post,source){
 }
 function qualityReject(r){
  const str=(r.name||'').toLocaleLowerCase('ru-RU');
- return /\b(пвз|пункт[ыа]? выдачи|администраци[яи]|ваканси[ия]|оптовые продажи|ремонт квартир|салон красоты|автомойк[аи]|доставк[аи] еды|магазин|купить|служба доставки)\b/u.test(str);
+ return /(пвз|пункт(?:ы|а)? выдачи|администраци[яи]|ваканси[ия]|оптовые продажи|ремонт квартир|салон красоты|автомойк[аи]|доставк[аи] еды|магазин|купить|служба доставки)/iu.test(str);
 }
 function eligible(r){
  if(r.closed||qualityReject(r))return false;
@@ -184,13 +183,13 @@ function markProfile(r,p,type){
  const value=num(type==='user'?p.followers_count:p.members_count);
  if(value!==null)r.followers=value;
  r.closed=Boolean(p.is_closed===true||p.is_closed===1||p.is_closed===2||p.deactivated);
- r.profile_checked_at=timestamp();
+ if(type==='user'||value!==null)r.profile_checked_at=timestamp();
  mark(r);
 }
 async function refreshProfiles(ids,token,delay){
  const only=[...new Set(ids)].map(i=>store.get(i)).filter(Boolean)
   .filter(r=>!fresh(r.profile_checked_at,profileFreshDays));
- const person=only.filter(r=>r.id>0),groups=only.filter(r=>r.id<0);
+ const person=only.filter(r=>r.id>0),groups=only.filter(r=>r.id<0 && el('authorIncludeGroups').checked);
  const batches=(rows,size)=>Array.from({length:Math.ceil(rows.length/size)},(_,k)=>rows.slice(k*size,(k+1)*size));
  for(const list of batches(person,100)){
   if(halt)break;
@@ -279,7 +278,7 @@ async function discover(token){
  return completed;
 }
 function sampleStoryRatio(posts){
- const story=/\b(я|мне|меня|мой|моя|мы|муж|жена|мама|реб[её]нок|дочка|сын|однажды|вчера|потом|оказалось|сказала|подумала|расскажу|история)\b/iu;
+ const story=/(?:^|[^\p{L}])(?:я|мне|меня|мой|моя|мы|муж|жена|мама|реб[её]нок|дочка|сын|однажды|вчера|потом|оказалось|сказала|подумала|расскажу|история)(?=$|[^\p{L}])/iu;
  const long=posts.filter(p=>(p.text||'').trim().length>=130);
  if(!posts.length)return null;
  return rate(100*long.filter(p=>story.test(p.text||'')).length/posts.length,1);
