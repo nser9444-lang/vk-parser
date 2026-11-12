@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Автопубликация — истории ВКонтакте</title>
+<style>
+:root{font-family:system-ui,-apple-system,'Segoe UI',Arial,sans-serif;background:#f3f6fa;color:#263142}
+*{box-sizing:border-box}body{margin:0;padding:20px}main{max-width:940px;margin:auto}
+h1{font-size:26px;margin:10px 0 4px}h2{font-size:19px;margin:0 0 13px}
+a{color:#1269cf}.sub{color:#5d6978;font-size:13px;line-height:1.5}
+.panel{background:white;border:1px solid #dfe8f1;padding:21px;border-radius:16px;margin:17px 0;box-shadow:0 2px 12px #172b4d08}
+label{display:block;font-size:14px;font-weight:650;margin:14px 0 6px}
+input:not([type=checkbox]),textarea,select{width:100%;font:inherit;border:1px solid #cdd8e6;border-radius:10px;padding:12px;background:#fff;color:#263142}
+textarea{min-height:290px;resize:vertical;line-height:1.55}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:15px}
+.hint{font-size:12px;color:#637387;line-height:1.5}
+.smallnote{padding:13px;border-radius:10px;background:#f0f6fd;color:#26577e;font-size:13px;line-height:1.55}
+.warning{background:#fff5e8;color:#75471e}
+.checkbox{display:flex;align-items:flex-start;gap:10px;font-weight:500;line-height:1.45}
+.checkbox input{margin:3px 0 0;flex:none;width:17px;height:17px}
+button,.go{display:inline-block;border:0;background:#0b79f8;color:white;padding:12px 17px;border-radius:10px;font:inherit;font-weight:650;cursor:pointer;text-decoration:none}
+button:hover,.go:hover{background:#0864d0;color:#fff}
+.actions{display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin:16px 0}
+#result{white-space:pre-wrap;overflow-wrap:anywhere;font-size:13px;background:#f6f9fc;border-radius:10px;padding:12px;min-height:44px}
+#preview{white-space:pre-wrap;line-height:1.6;overflow-wrap:anywhere;max-height:400px;overflow:auto}
+#counter{font-size:12px;color:#607184;text-align:right}
+@media(max-width:690px){body{padding:10px}.panel{padding:16px}.grid{grid-template-columns:1fr}}
+</style>
+</head>
+<body><main>
+<a href="./index.html">← Вернуться к парсеру</a>
+<h1>Автопубликация историй</h1>
+<div class="sub">Создание черновиков и заявок на публикацию в сообществе ВКонтакте. Парсер авторов продолжает работать отдельно.</div>
+<section class="panel">
+<h2>1. Подготовить историю</h2>
+<div class="smallnote">Здесь не нужен токен GitHub или ВК. Заявка открывается в <b>закрытом репозитории</b> через твой обычный вход на GitHub. Передача произойдёт, только когда ты нажмёшь «Submit new issue» на GitHub. До включения публикации в настройках ничего на стену ВК не отправляется.</div>
+<label for="title">Рабочее название</label>
+<input id="title" maxlength="90" value="Новая история" autocomplete="off">
+<label for="story">Текст записи (оригинальная история, не копия чужой)</label>
+<textarea id="story" placeholder="Вставь или напиши текст истории. Здесь может быть длинный сторителлинг..."></textarea>
+<div id="counter">0 символов</div>
+<div class="grid">
+<div><label for="when">Время публикации (по Москве)</label><input id="when" type="datetime-local"><div class="hint">Время сохраняется с часовым поясом +03:00. GitHub может запустить действие с задержкой.</div></div>
+<div><label for="intent">После отправки на GitHub</label>
+<select id="intent"><option value="draft" selected>Сохранить как черновик</option><option value="approved">Одобрить к публикации</option></select>
+<div class="hint">Одобренная запись попадёт в расписание только после включения автопубликации.</div>
+</div></div>
+<label for="attachments">Вложения, если уже загружены в ВК (необязательно)</label>
+<input id="attachments" placeholder="photo-123_456, photo-123_789">
+<div class="hint">Поддерживаются ID уже загруженных фото, видео и документов. Загрузка новых фотографий пока не подключена.</div>
+<label class="checkbox"><input type="checkbox" id="ad"><span>Это рекламная публикация / интеграция товара</span></label>
+<label class="checkbox"><input type="checkbox" id="adReviewed"><span>Маркировка рекламы и необходимые идентификаторы проверены (для одобрения рекламы)</span></label>
+<div class="smallnote warning">Если история содержит реферальную ссылку Ozon, укажи рекламный характер и проверь требования к маркировке. Только отметки «Реклама» в ВК может быть недостаточно.</div>
+<div class="actions"><button id="prepare">Подготовить заявку в GitHub</button><a id="openIssue" class="go" href="#" style="display:none" target="_blank" rel="noopener noreferrer">Открыть заявку и подтвердить в GitHub ↗</a></div>
+<div id="result" role="status">Заполни текст и нажми «Подготовить заявку».</div>
+</section>
+<section class="panel"><h2>2. Предпросмотр текста</h2><div id="preview" class="hint">Текст появится здесь.</div></section>
+<section class="panel"><h2>3. Как работает автопубликация</h2>
+<p class="sub">Одобренные заявки сохраняются в закрытой очереди, отдельный процесс проверяет их по расписанию и публикует при наличии разрешённого токена сообщества. Есть защита от повторов, ограничение частоты и журнал ссылок на размещённые записи.</p>
+<p class="sub">Весь исследовательский конвейер работает независимо: поиск авторов, проверка охватов и анализ сторителлинга не зависят от очереди публикаций.</p>
+<a href="https://github.com/nser9444-lang/vk-parser-data/blob/main/publisher/README.md" target="_blank" rel="noopener noreferrer">Инструкция по запуску в закрытом GitHub ↗</a>
+</section>
+</main>
+<script>
+(function(){
+'use strict';
+const $=id=>document.getElementById(id);
+const ids=['title','story','when','intent','attachments','ad','adReviewed'];
+function moscowTime(date){
+  const bits=new Intl.DateTimeFormat('sv-SE',{timeZone:'Europe/Moscow',year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',hour12:false}).format(date);
+  return bits.replace(' ','T');
+}
+$('when').value=moscowTime(new Date(Date.now()+2*3600*1000));
+try{const saved=JSON.parse(sessionStorage.getItem('vk-publisher-draft')||'null');if(saved)for(const id of ids){if(saved[id]!==undefined)$(id)[$(id).type==='checkbox'?'checked':'value']=saved[id];}}catch(e){}
+function save(){
+  const payload={}; for(const id of ids)payload[id]=$(id).type==='checkbox'?$(id).checked:$(id).value;
+  try{sessionStorage.setItem('vk-publisher-draft',JSON.stringify(payload));}catch(e){}
+}
+function render(){
+  const txt=$('story').value;
+  $('counter').textContent=txt.length.toLocaleString('ru-RU')+' символов';
+  $('preview').textContent=txt||'Текст появится здесь.';
+  $('openIssue').style.display='none';save();
+}
+ids.forEach(id=>$(id).addEventListener('input',render));
+ids.forEach(id=>$(id).addEventListener('change',render));
+render();
+function base64url(bytes){
+  let str=''; for(let i=0;i<bytes.length;i++)str+=String.fromCharCode(bytes[i]);
+  return btoa(str).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
+}
+async function zipJson(raw){
+  if(typeof CompressionStream==='undefined')throw Error('Браузер не поддерживает сжатие длинной истории.');
+  const input=new TextEncoder().encode(raw);
+  const stream=new Blob([input]).stream().pipeThrough(new CompressionStream('gzip'));
+  const result=new Uint8Array(await new Response(stream).arrayBuffer());
+  return base64url(result);
+}
+$('prepare').addEventListener('click',async()=>{
+  const out=$('result');const link=$('openIssue');
+  link.style.display='none';
+  try{
+    const message=$('story').value.trim(), title=$('title').value.trim()||'Новая история', when=$('when').value;
+    if(message.length<30||message.length>15000)throw Error('Текст истории должен содержать от 30 до 15 000 символов.');
+    if(!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(when))throw Error('Укажи дату и время публикации.');
+    const ad=$('ad').checked, reviewed=$('adReviewed').checked, intent=$('intent').value;
+    if(intent==='approved' && ad && !reviewed)throw Error('Перед одобрением рекламы требуется проверить маркировку.');
+    if(!ad && /(?:ozon\.ru|s\.ozon\.ru|advref|озон)/i.test(message))
+      throw Error('В тексте найдены признаки интеграции Ozon. Укажи рекламный характер записи и проверь маркировку.');
+    const attachments=$('attachments').value.split(/[,\n]/).map(x=>x.trim()).filter(Boolean);
+    if(attachments.length>10||attachments.some(x=>!/^(?:photo|video|doc)-?\d+_\d+$/.test(x)))
+      throw Error('Вложения должны быть VK ID (например photo-123_456), не более 10.');
+    const entry={intent,message,publish_at:when+':00+03:00',ad,ad_reviewed:reviewed,attachments};
+    const json=JSON.stringify(entry);
+    const heading='[VK] '+title.slice(0,80);
+    let body='Новая история для закрытой очереди.\n\n~~~vk-story-json\n'+json+'\n~~~';
+    let url='https://github.com/nser9444-lang/vk-parser-data/issues/new?title='+encodeURIComponent(heading)+'&body='+encodeURIComponent(body);
+    if(url.length>6200){
+      out.textContent='Длинная история: сжимаю текст для безопасной передачи...';
+      const zipped=await zipJson(json);
+      body='Заявка на публикацию. Фрагмент для проверки:\n\n'+message.slice(0,320)+'\n\nПолная история включена в сжатый блок ниже:\n\nvk-story-gzip:'+zipped;
+      url='https://github.com/nser9444-lang/vk-parser-data/issues/new?title='+encodeURIComponent(heading)+'&body='+encodeURIComponent(body);
+    }
+    if(url.length>14000)throw Error('История слишком большая для ссылки-заявки. Сократи вложения или текст.');
+    link.href=url;link.style.display='inline-block';
+    out.textContent='Заявка подготовлена. Нажми синюю ссылку выше и на странице GitHub подтверди создание заявки («Submit new issue»). Режим: '+(intent==='draft'?'черновик':'одобрено')+'. После отправки автоматическая очередь заберёт запись.';
+  }catch(err){out.textContent='Ошибка: '+err.message;}
+});
+})();
+</script></body></html>
