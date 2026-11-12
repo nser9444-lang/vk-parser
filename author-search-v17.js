@@ -151,18 +151,20 @@ function assessReach(posts,r){
  r.reach_sample_count=posts.length;
  mark(r);
 }
-function isSuper(r){
+function hasHighOrdinaryViews(r){
  const cfg=reachSettings();
  return (r.ozon_ref_hits||0)>=1&&(r.ordinary_posts_count||0)>=6&&
-  r.ordinary_median_views>=cfg.median&&
-  r.ordinary_views_per_follower>=cfg.ratio&&
-  (r.ordinary_repeat_count||0)>=3;
+  r.ordinary_median_views>=cfg.median&&(r.ordinary_repeat_count||0)>=3;
+}
+function isSuper(r){
+ const cfg=reachSettings();
+ return hasHighOrdinaryViews(r)&&r.ordinary_views_per_follower>=cfg.ratio;
 }
 function reachState(r){
  if(!r.organic_baseline_checked_at)return 'не проверено';
  if((r.ordinary_posts_count||0)<6)return 'мало обычных постов';
  if(!(r.ozon_ref_hits>0))return 'нет advRef в выборке';
- if(r.followers==null||r.followers<=0)return 'нужно уточнить число подписчиков';
+ if(r.followers==null||r.followers<=0)return hasHighOrdinaryViews(r)?'СИЛЬНЫЙ КАНДИДАТ · нужны подписчики':'нужно уточнить число подписчиков';
  if(isSuper(r))return 'КАНДИДАТ В ТОП';
  const cfg=reachSettings();
  if(r.ordinary_median_views<cfg.median)return 'обычные просмотры ниже порога';
@@ -206,7 +208,8 @@ function updateView(){
  const strong=all.filter(r=>(r.ozon_ref_hits||0)>0).length,possible=all.filter(r=>(r.ozon_possible_hits||0)>0).length;
  el('baseCount').textContent='Всего: '+store.size+' · личные страницы: '+peopleCount+' · сообщества: '+groupCount+
   '\nС маркером Ozon advRef: '+strong+' · с вероятной короткой товарной ссылкой: '+possible+
-  '\nКандидатов с высокими просмотрами обычных постов + advRef: '+all.filter(r=>isSuper(r)).length+
+  '\nВысокие обычные просмотры + advRef: '+all.filter(r=>hasHighOrdinaryViews(r)).length+
+  ' · из них с подтверждённым отношением × подписчиков: '+all.filter(r=>isSuper(r)).length+
   '\nВ выбранном направлении с фильтрами: '+eligibleAll.length+' · проверенных подходящих: '+qualified.length+
   (el('ozonFilter').value==='off'?'':' · ещё не проверено на Ozon: '+uncheckedOzon);
  el('targetHint').textContent=targetIsPeople()
