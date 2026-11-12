@@ -10,7 +10,7 @@
 </head>
 <body><main>
 <h1>Парсер публичных постов ВК</h1>
-<div class="sub">Версия 1.4 · приложение 54892559 · сбор через VK Bridge · выгрузка CSV или отправка результатов в закрытый GitHub</div>
+<div class="sub">Версия 1.5 · приложение 54892559 · сбор через VK Bridge · выгрузка CSV или отправка результатов в закрытый GitHub</div>
 <section class="panel"><h2>1. Источники</h2>
 <label for="sources">Ссылки на публичные страницы и сообщества, по одной на строку</label>
 <textarea id="sources" spellcheck="false">https://vk.ru/irina_na_smene
@@ -37,10 +37,13 @@ https://vk.ru/club241887015</textarea>
 <section class="panel"><h2>4. Предпросмотр <span class="pill" id="rows">0 записей</span></h2><div class="table-wrap"><table><thead><tr><th>Дата</th><th>Источник</th><th>Текст поста</th><th>Лайки</th><th>Просмотры</th><th>Ссылка</th></tr></thead><tbody id="preview"><tr><td colspan="6">Данных пока нет</td></tr></tbody></table></div><p class="hint">CSV содержит полные тексты, ссылки, даты, статистику, тип публикации, вложения и идентификаторы. В таблице показаны первые 30 постов.</p></section>
 
 <section class="panel" id="authorFinder">
-<h2>5. Быстрый поиск авторов и накопительная база — версия 1.4</h2>
-<p class="hint">Два этапа: массовый поиск кандидатов без загрузки каждой стены, затем проверка лучших. Сохраняем найденных кандидатов и даты проверок в закрытом GitHub, чтобы не начинать каждый раз заново.</p>
+<h2>5. Поиск личных блогеров и авторских сообществ — версия 1.5</h2>
+<p class="hint">Выбирай отдельный режим: личные авторы или авторские сообщества. У каждого направления собственные кандидаты и результаты проверки. Накопленная база в закрытом GitHub сохраняется.</p>
 <div class="actions"><button id="loadAuthorBase" class="secondary" type="button">Загрузить базу из GitHub</button></div>
-<div class="stats" id="baseCount">0 кандидатов в базе</div>
+<div class="grid"><div><label for="authorTarget">Кого ищем</label>
+<select id="authorTarget"><option value="people" selected>👤 Личные блогеры</option><option value="groups">📖 Авторские сообщества</option></select></div>
+<div><div class="hint" id="targetHint">Ищем авторов личных профилей в тематических постах и сообществах, не магазины.</div></div></div>
+<div class="stats" id="baseCount" style="white-space:pre-wrap">0 кандидатов в базе</div>
 <div class="grid">
 <div><label for="authorMode">Где искать</label><select id="authorMode"><option value="both" selected>Темы + сообщества ЦА</option><option value="keywords">По темам</option><option value="communities">В сообществах ЦА</option></select></div>
 <div><label for="authorMaxSubs">Не более подписчиков</label><select id="authorMaxSubs"><option value="10000">10 000</option><option value="30000">30 000</option><option value="50000" selected>50 000</option><option value="100000">100 000</option><option value="0">Без ограничения</option></select></div>
@@ -56,7 +59,7 @@ https://vk.ru/club241782252
 https://vk.ru/club241887015</textarea></div>
 </div>
 <label style="font-weight:400;margin-top:12px"><input type="checkbox" id="enableGroupSearch" checked style="width:auto"> Дополнительно искать авторские сообщества через groups.search</label>
-<label for="groupKeywords">Темы для поиска сообществ</label>
+<label for="groupKeywords">Темы для поиска авторских сообществ (активны только в режиме сообществ)</label>
 <textarea id="groupKeywords" style="min-height:90px">личный блог
 авторский блог
 дневник жизни
@@ -68,7 +71,8 @@ https://vk.ru/club241887015</textarea></div>
 <div class="grid">
 <div><label for="authorMinViews">Медиана просмотров от</label><select id="authorMinViews"><option value="0">Без минимума</option><option value="500">500</option><option value="1000" selected>1 000</option><option value="3000">3 000</option><option value="10000">10 000</option></select></div>
 <div><label>Дополнительные настройки</label>
-<label style="font-weight:400"><input id="authorIncludeGroups" type="checkbox" style="width:auto"> Включать сообщества, а не только личные страницы</label>
+<label style="font-weight:400"><input id="authorExcludeCommercial" type="checkbox" checked style="width:auto"> Отсеивать явные организации и коммерческие страницы</label>
+<label style="font-weight:400"><input id="authorGroupStrict" type="checkbox" checked style="width:auto"> Показывать только вероятно авторские сообщества (эвристика по названию и описанию)</label>
 <label style="font-weight:400"><input id="authorCommenters" type="checkbox" style="width:auto"> Добавлять комментаторов (дольше)</label>
 <label style="font-weight:400"><input id="authorForceRecheck" type="checkbox" style="width:auto"> Перепроверить уже проверенных</label></div>
 </div>
@@ -80,7 +84,7 @@ https://vk.ru/club241887015</textarea></div>
 <h2 style="margin-top:20px">Проверенные подходящие авторы <span class="pill" id="authorCount">0</span></h2>
 <div class="table-wrap"><table><thead><tr><th>Автор</th><th>Подписчики</th><th>Медиана просмотров</th><th>Просмотры / подписчик</th><th>ER</th><th>Признаки историй*</th><th>Постов</th><th>Ссылка</th></tr></thead><tbody id="authorRows"></tbody></table></div>
 <div class="actions"><button id="candidateExport" class="secondary" disabled>CSV кандидатов</button><button id="authorExport" class="secondary" disabled>CSV авторов</button><button id="authorPostExport" class="secondary" disabled>CSV их постов</button></div>
-<p class="hint">* Признаки сторителлинга определяются приблизительно по тексту. Медиана считается по доступным публикациям. Для накопления базы включите автопередачу в закрытый GitHub (раздел 2). VK API может ограничивать отдельные способы поиска.</p>
+<p class="hint">* Признаки сторителлинга определяются приблизительно, а авторский характер сообщества — по названию и описанию, поэтому возможны ошибки отбора. Для накопления базы включи автопередачу в закрытый GitHub (раздел 2). Переключение между категориями не удаляет ранее найденных кандидатов.</p>
 </section>
 </main>
 <script>
@@ -285,5 +289,5 @@ start.addEventListener('click',async()=>{
 
 if(typeof vkBridge!=='undefined')vkBridge.send('VKWebAppInit').catch(e=>{status.textContent='Ошибка инициализации VK Bridge: '+safeError(e);});
 </script>
-<script src="./author-search-v14.js"></script>
+<script src="./author-search-v15.js"></script>
 </body></html>
