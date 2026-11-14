@@ -50,8 +50,10 @@ a{color:#086ab8}code{font-size:12px;background:#f5f8fc;padding:2px 5px}
 <div class="actions">
 <button id="load">Загрузить все предложенные</button>
 <button id="reload" class="secondary" disabled>Обновить список</button>
+<button id="checkAll" class="secondary">Проверить доступ ко всем 4 сообществам</button>
 </div>
 <div id="loadStatus" class="status" role="status">Сообщество ещё не подключено.</div>
+<div id="accessStatus" class="status" style="margin-top:10px">Проверка доступа к четырём сообществам ещё не выполнялась. Ключи не отображаются и не сохраняются.</div>
 </section>
 
 <section class="panel">
@@ -152,6 +154,36 @@ async function resolveGroup(text){
  if(!Array.isArray(groups)||!groups.length)throw Error('Сообщество не найдено.');
  return Number(groups[0].id);
 }
+async function checkAll(){
+ const button=$('checkAll');button.disabled=true;
+ try{
+  if(typeof vkBridge==='undefined')throw Error('Открой приложение во ВКонтакте.');
+  await vkBridge.send('VKWebAppInit');
+  if(!token){
+   const t=await vkBridge.send('VKWebAppGetAuthToken',{app_id:APP_ID,scope:'wall'});
+   token=t.access_token;
+  }
+  if(!token)throw Error('Нет разрешения wall.');
+  const checks=[
+   ['Суши Тайм — Воронеж','sushitime36'],
+   ['Суши Тайм — Старый Оскол','sushitime_so'],
+   ['Дело в роллах — Краснодар','delovrolls'],
+   ['Бамбук Фуд — Воронеж','bambook_food']
+  ],out=[];
+  for(const [name,shortName] of checks){
+   try{
+    const gid=await resolveGroup(shortName);
+    const response=await api('wall.get',{owner_id:-gid,filter:'suggests',count:1,offset:0});
+    if(!response||!Array.isArray(response.items))throw Error('Нет списка предложенных.');
+    out.push('✓ '+name+' · ID '+gid+' · предложено: '+(response.count??'?'));
+   }catch(e){out.push('✗ '+name+': '+e.message);}
+   status('accessStatus',out.join('\n'));
+  }
+  status('accessStatus',out.join('\n')+'\n\nЭто проверка доступа текущей учётной записи ВК через приложение, а не наличия секретов в GitHub.');
+ }catch(e){status('accessStatus','Ошибка проверки: '+e.message);}
+ finally{button.disabled=false;}
+}
+$('checkAll').addEventListener('click',checkAll);
 async function loadWall(filter){
  let all=[],offset=0;
  while(true){
