@@ -39,7 +39,13 @@ a{color:#086ab8}code{font-size:12px;background:#f5f8fc;padding:2px 5px}
 <section class="panel">
 <h2>1. Подключить сообщество</h2>
 <label for="group">Сообщество ВКонтакте</label>
-<input id="group" placeholder="Например, https://vk.ru/club123456789 или короткое имя" autocomplete="off" spellcheck="false">
+<input id="group" list="rollsCommunities" placeholder="Выбери сообщество из списка или введи ссылку" autocomplete="off" spellcheck="false">
+<datalist id="rollsCommunities">
+<option value="https://vk.ru/sushitime36">Суши Тайм — Воронеж</option>
+<option value="https://vk.ru/sushitime_so">Суши Тайм — Старый Оскол</option>
+<option value="https://vk.ru/delovrolls">Дело в роллах — Краснодар</option>
+<option value="https://vk.ru/bambook_food">Бамбук Фуд — Воронеж</option>
+</datalist>
 <p class="hint">Открывай эту страницу внутри приложения ВК. Нужны права руководителя сообщества и разрешение <b>wall</b>. Ключи доступа на этой странице не сохраняются.</p>
 <div class="actions">
 <button id="load">Загрузить все предложенные</button>
