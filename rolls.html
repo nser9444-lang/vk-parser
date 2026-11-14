@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Планировщик роллов — предложенные новости ВК</title>
+<script src="https://unpkg.com/@vkontakte/vk-bridge@2.14.2/dist/browser.min.js"></script>
+<style>
+:root{font:15px/1.5 system-ui,-apple-system,'Segoe UI',Arial,sans-serif;color:#1a3043;background:#f2f5fa}
+*{box-sizing:border-box}body{margin:0;padding:18px}main{max-width:1060px;margin:auto}
+h1{font-size:clamp(24px,4vw,34px);margin:8px 0 6px}h2{font-size:18px;margin:0 0 12px}p{margin:8px 0}
+header{padding:13px 2px 4px}.eyebrow{font-size:12px;font-weight:800;letter-spacing:.08em;color:#1763a7;text-transform:uppercase}
+.sub,.hint{color:#62758a;font-size:13px;line-height:1.65}.panel{background:white;border:1px solid #e0e7ef;border-radius:17px;padding:21px;margin:17px 0;box-shadow:0 3px 14px #23364d09}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:15px}.grid3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:15px}
+label{font-weight:700;font-size:13px;display:block;margin:0 0 7px}
+input{width:100%;background:white;border:1px solid #c8d4e2;padding:12px;border-radius:9px;font:inherit;color:#22384c}
+button,.button{display:inline-block;font:inherit;font-weight:700;border:0;border-radius:10px;background:#1673e6;color:white;padding:12px 17px;text-decoration:none;cursor:pointer}
+button.secondary{color:#115c9c;background:#eaf3ff}.button:focus,button:focus{outline:3px solid #9cccff}
+button:disabled,.button.disabled{opacity:.5;pointer-events:none}
+.actions{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin:17px 0 0}
+.warning{border-left:4px solid #d48e21;padding:12px;background:#fff8e9;font-size:13px;border-radius:8px;margin:16px 0}
+.info{padding:13px;background:#edf7ff;border-radius:9px;font-size:13px;color:#315772;margin:12px 0}
+.status{min-height:48px;background:#f5f8fc;padding:13px;border-radius:9px;font-size:13px;white-space:pre-wrap;overflow-wrap:anywhere;line-height:1.65}
+.stats{display:flex;gap:12px;flex-wrap:wrap}.stat{flex:1;min-width:130px;background:#f5f8fc;padding:15px;border-radius:12px;font-size:13px;color:#5a6e82}.stat strong{display:block;font-size:28px;color:#173550}
+.list{max-height:540px;overflow:auto}.entry{border-bottom:1px solid #e7edf3;padding:13px 0}.entry:last-child{border-bottom:0}
+.entry-head{font-weight:700;font-size:13px;color:#185a95;display:flex;justify-content:space-between;gap:10px}.entry p{font-size:14px;white-space:pre-wrap;overflow-wrap:anywhere;max-height:110px;overflow:auto}.chip{font-size:11px;border-radius:16px;background:#edf4fa;color:#335e7d;padding:4px 9px;white-space:nowrap}
+.empty{text-align:center;color:#6a7c8e;padding:20px}.footer{margin:28px 0;color:#667c90;font-size:12px}
+a{color:#086ab8}code{font-size:12px;background:#f5f8fc;padding:2px 5px}
+@media(max-width:650px){body{padding:10px}.panel{padding:14px}.grid,.grid3{grid-template-columns:1fr}.entry-head{display:block}.entry-head .chip{display:inline-block;margin-top:6px}}
+</style>
+</head>
+<body><main>
+<header>
+<div class="eyebrow">Текста роллы · ВКонтакте</div>
+<h1>Планировщик предложенных новостей</h1>
+<p class="sub">Все предложенные записи → проверка орфографии и пунктуации с ИИ → уместные эмодзи → отложенные публикации ВК на 20 дней. Фотографии и вложения не заменяем.</p>
+<p><a href="./index.html">← К главной странице приложения</a></p>
+</header>
+
+<section class="panel">
+<h2>1. Подключить сообщество</h2>
+<label for="group">Сообщество ВКонтакте</label>
+<input id="group" placeholder="Например, https://vk.ru/club123456789 или короткое имя" autocomplete="off" spellcheck="false">
+<p class="hint">Открывай эту страницу внутри приложения ВК. Нужны права руководителя сообщества и разрешение <b>wall</b>. Ключи доступа на этой странице не сохраняются.</p>
+<div class="actions">
+<button id="load">Загрузить все предложенные</button>
+<button id="reload" class="secondary" disabled>Обновить список</button>
+</div>
+<div id="loadStatus" class="status" role="status">Сообщество ещё не подключено.</div>
+</section>
+
+<section class="panel">
+<h2>2. Параметры расписания</h2>
+<div class="grid3">
+<div><label for="startDate">Первый день (время Москвы)</label><input type="date" id="startDate"></div>
+<div><label for="days">Период</label><input id="days" value="20 дней" disabled></div>
+<div><label for="hours">Время публикаций</label><input id="hours" value="10:00–20:00 (МСК)" disabled></div>
+</div>
+<div class="info">Все записи распределяются равномерно по двадцати дням. Занятые интервалы из раздела «Отложенные» учитываются. Если свободных интервалов недостаточно, планирование остановится с ошибкой — лишние записи не потеряются.</div>
+<div class="actions"><button id="calculate" class="secondary" disabled>Рассчитать расписание</button></div>
+</section>
+
+<section class="panel">
+<h2>3. Предпросмотр</h2>
+<div class="stats">
+<div class="stat"><strong id="proposedCount">0</strong>предложенных</div>
+<div class="stat"><strong id="plannedCount">0</strong>в плане</div>
+<div class="stat"><strong id="existingCount">0</strong>уже отложено</div>
+</div>
+<p class="hint">Ниже показан исходный текст. ИИ-корректура выполняется позже в закрытом обработчике; изменённые тексты будут сохранены в приватном отчёте GitHub. Точные времена окончательно рассчитываются при обработке заявки.</p>
+<div id="planStatus" class="status">Загрузи предложенные новости, чтобы построить расписание.</div>
+<div id="list" class="list"><div class="empty">Нет записей для предпросмотра</div></div>
+</section>
+
+<section class="panel">
+<h2>4. Подготовить к переносу в отложенные</h2>
+<p>После подтверждения заявки в закрытом GitHub обработчик заново получит все предложенные записи, исправит ошибки, добавит до двух уместных эмодзи и перенесёт записи в отложенные. Оригинальные вложения сохраняются посредством исходного идентификатора предложенной записи.</p>
+<div class="warning"><b>Защита от случайной публикации.</b> На этапе установки система работает в тестовом режиме и ничего не меняет в ВК. Реальный перенос включается отдельно после проверки прав доступа и пробного запуска. Если ИИ изменит цены, числа или ссылки, запись не отправится автоматически.</div>
+<div class="actions"><button id="prepare" disabled>Подготовить все записи</button><a id="issueLink" class="button" target="_blank" rel="noopener noreferrer" style="display:none">Открыть заявку в GitHub ↗</a></div>
+<div id="submitStatus" class="status">Пока ничего не отправлено.</div>
+<p class="hint">GitHub попросит нажать <b>Submit new issue</b>. Это подтверждает создание заявки; фактический перенос возможен только после включения серверного обработчика. Не отправляй одну и ту же заявку дважды.</p>
+</section>
+
+<div class="footer">Планировщик отделён от парсера авторов и автопубликации историй. Не изменяет другие разделы приложения.</div>
+</main>
+<script>
+(function(){
+'use strict';
+const APP_ID=54892559, VERSION='5.199';
+const $=id=>document.getElementById(id);
+let token=null,groupId=null,groupName='',suggests=[],postponed=[],plan=[],loading=false;
+function moscowDate(now){
+  return new Intl.DateTimeFormat('sv-SE',{timeZone:'Europe/Moscow',year:'numeric',month:'2-digit',day:'2-digit'}).format(now);
+}
+function plusDate(iso,n){
+  const d=new Date(iso+'T12:00:00Z');d.setUTCDate(d.getUTCDate()+n);
+  return d.toISOString().slice(0,10);
+}
+$('startDate').value=plusDate(moscowDate(new Date()),1);
+function status(id,s){$(id).textContent=s;}
+function resetPlan(){
+ plan=[];$('plannedCount').textContent='0';$('issueLink').style.display='none';
+ $('prepare').disabled=true;status('submitStatus','Пока ничего не отправлено.');
+}
+function esc(text){
+ const s=document.createElement('span');s.textContent=String(text??'');return s.innerHTML;
+}
+function render(){
+ $('proposedCount').textContent=suggests.length;
+ $('existingCount').textContent=postponed.length;
+ $('plannedCount').textContent=plan.length;
+ if(!plan.length){$('list').innerHTML='<div class="empty">Нет записей для предпросмотра</div>';return;}
+ const max=200;
+ $('list').innerHTML=plan.slice(0,max).map((r,i)=>{
+   const a=r.post.attachments||[];
+   const attached=a.map(x=>x.type).join(', ');
+   const link='https://vk.ru/wall-'+groupId+'_'+r.post.id;
+   return '<div class="entry"><div class="entry-head"><span>'+esc(String(i+1)+'. '+r.atLabel)+'</span>'
+     +'<span class="chip">'+esc('№'+r.post.id+' · вложений: '+a.length)+'</span></div>'
+     +'<p>'+esc(r.post.text||'(Запись без текста)')+'</p>'
+     +'<div class="hint">Вложения: '+esc(attached||'нет')+' · <a target="_blank" rel="noopener noreferrer" href="'+link+'">Открыть исходную запись</a></div></div>';
+ }).join('')+(plan.length>max?'<div class="empty">Показаны первые 200 из '+plan.length+'. В обработку попадут все записи.</div>':'');
+}
+async function api(method,params,canRetry=true){
+ for(let attempt=0;attempt<(canRetry?4:1);attempt++){
+  try{
+   const r=await vkBridge.send('VKWebAppCallAPIMethod',{method,params:{...params,access_token:token,v:VERSION}});
+   if(r&&r.error)throw r.error;
+   return r.response??r;
+  }catch(e){
+   const code=Number(e?.error_code||e?.error?.error_code||0);
+   if(canRetry&&(code===6||code===9||code===10)&&attempt<3){
+    await new Promise(resolve=>setTimeout(resolve,1300*(attempt+1)));continue;
+   }
+   throw Error('VK '+(code||'')+': '+(e.error_msg||e.message||'нет доступа'));
+  }
+ }
+}
+async function resolveGroup(text){
+ let value=text.trim().replace(/^https?:\/\/(?:m\.)?vk\.(?:ru|com)\//i,'').split(/[?#/]/)[0].replace(/^@/,'');
+ if(/^-?\d+$/.test(value))return Math.abs(Number(value));
+ let m=value.match(/^(?:club|public)(\d+)$/i);
+ if(m)return Number(m[1]);
+ if(!/^[\w.]{2,100}$/.test(value))throw Error('Введи ссылку на сообщество ВК или его ID.');
+ const response=await api('groups.getById',{group_ids:value});
+ const groups=Array.isArray(response)?response:response.groups;
+ if(!Array.isArray(groups)||!groups.length)throw Error('Сообщество не найдено.');
+ return Number(groups[0].id);
+}
+async function loadWall(filter){
+ let all=[],offset=0;
+ while(true){
+  const r=await api('wall.get',{owner_id:-groupId,filter,count:100,offset});
+  if(!Array.isArray(r.items))throw Error('Не удалось получить '+filter+'. Проверь права администратора.');
+  all.push(...r.items);
+  if(all.length>3000)throw Error('Более 3000 записей. Массовая обработка требует отдельного режима.');
+  offset+=r.items.length;
+  status('loadStatus',groupName+'\nПолучено '+(filter==='suggests'?'предложенных':'отложенных')+': '+all.length+' / '+(r.count??'?'));
+  if(!r.items.length||offset>=Number(r.count??all.length))break;
+  await new Promise(resolve=>setTimeout(resolve,400));
+ }
+ return all;
+}
+async function load(){
+ if(loading)return;
+ loading=true;resetPlan();suggests=[];postponed=[];render();
+ $('load').disabled=true;$('reload').disabled=true;$('calculate').disabled=true;
+ try{
+  if(typeof vkBridge==='undefined')throw Error('VK Bridge не загружен. Открой приложение внутри ВКонтакте.');
+  await vkBridge.send('VKWebAppInit');
+  const result=await vkBridge.send('VKWebAppGetAuthToken',{app_id:APP_ID,scope:'wall'});
+  token=result.access_token;
+  if(!token)throw Error('ВК не предоставил доступ к стене.');
+  groupId=await resolveGroup($('group').value);
+  groupName='Сообщество club'+groupId;
+  suggests=await loadWall('suggests');
+  postponed=await loadWall('postponed');
+  status('loadStatus','Подключено: '+groupName+'\nПредложенных: '+suggests.length+', уже отложенных: '+postponed.length+'.');
+  $('calculate').disabled=!suggests.length;
+  if(suggests.length)calculate();
+  else status('planStatus','Предложенных новостей сейчас нет.');
+ }catch(err){status('loadStatus','Ошибка: '+err.message);status('planStatus','Расписание не построено.');}
+ finally{loading=false;$('load').disabled=false;$('reload').disabled=false;render();}
+}
+function calculate(){
+ resetPlan();
+ if(!suggests.length||!groupId){status('planStatus','Предложенных записей нет.');return;}
+ try{
+  const start=$('startDate').value;
+  if(!/^\d{4}-\d\d-\d\d$/.test(start))throw Error('Укажи дату начала.');
+  if(start<moscowDate(new Date()))throw Error('Дата начала уже прошла.');
+  const sorted=[...suggests].sort((a,b)=>(a.date||0)-(b.date||0)||(a.id-b.id));
+  const groups=Array.from({length:20},()=>[]);
+  sorted.forEach((p,i)=>groups[Math.min(19,Math.floor((i+.5)*20/sorted.length))].push(p));
+  const occupied=new Map();
+  postponed.forEach(p=>{
+    if(!p.date)return;
+    const day=moscowDate(new Date(p.date*1000));
+    const hm=new Intl.DateTimeFormat('en-GB',{timeZone:'Europe/Moscow',hour:'2-digit',minute:'2-digit',hourCycle:'h23'}).format(new Date(p.date*1000));
+    const [h,m]=hm.split(':').map(Number);
+    if(!occupied.has(day))occupied.set(day,[]);
+    occupied.get(day).push(h*60+m);
+  });
+  const result=[];
+  groups.forEach((items,i)=>{
+    const day=plusDate(start,i), busy=occupied.get(day)||[];
+    items.forEach((p,j)=>{
+      const ideal=Math.round(600+(j+1)*600/(items.length+1));
+      let chosen=null,dist=Infinity;
+      for(let m=600;m<=1200;m++){
+        if(busy.some(x=>Math.abs(m-x)<15))continue;
+        const d=Math.abs(m-ideal);
+        if(d<dist){chosen=m;dist=d;}
+      }
+      if(chosen===null)throw Error('Не хватает свободных слотов на '+day+' (не менее 15 минут между записями).');
+      busy.push(chosen);
+      const hh=String(Math.floor(chosen/60)).padStart(2,'0'),mm=String(chosen%60).padStart(2,'0');
+      result.push({post:p,at:day+'T'+hh+':'+mm+':00+03:00',atLabel:day+' '+hh+':'+mm+' МСК'});
+    });
+  });
+  plan=result.sort((a,b)=>a.at.localeCompare(b.at));
+  if(new Date(plan[0].at).getTime()<=Date.now()+20*60*1000)throw Error('Начало слишком близко. Выбери следующий день.');
+  status('planStatus','План готов: '+plan.length+' из '+suggests.length+' предложенных новостей.\nПервые публикации: '+plan.slice(0,4).map(x=>x.atLabel).join(' · ')+'\nПоследняя: '+plan[plan.length-1].atLabel);
+  $('prepare').disabled=false;
+ }catch(err){status('planStatus','Ошибка планирования: '+err.message);plan=[];}
+ render();
+}
+$('load').addEventListener('click',load);
+$('reload').addEventListener('click',load);
+$('startDate').addEventListener('change',()=>{if(suggests.length)calculate();});
+$('calculate').addEventListener('click',calculate);
+$('prepare').addEventListener('click',()=>{
+ if(!plan.length||!groupId)return;
+ const data={kind:'rolls-schedule-v1',group_id:groupId,start_date:$('startDate').value,
+ days:20,start_hour:10,end_hour:20,preview_count:plan.length};
+ const title='[ROLLS] '+groupName+' · 20 дней · '+data.start_date;
+ const body='Планировщик роллов. Запрос на обработку ВСЕХ предложенных новостей.\n'
+ +'Окно: 10:00–20:00 по Москве. Срок: 20 дней. Редактор: грамматика, пунктуация, до 2 эмодзи.\n'
+ +'Фотографии и вложения не заменять. Подробности и статус — в приватном отчёте.\n\n'
+ +'~~~vk-rolls-json\n'+JSON.stringify(data)+'\n~~~';
+ const url='https://github.com/nser9444-lang/vk-parser-data/issues/new?title='
+ +encodeURIComponent(title)+'&body='+encodeURIComponent(body);
+ $('issueLink').href=url;$('issueLink').style.display='inline-block';
+ status('submitStatus','Заявка подготовлена для '+plan.length+' предложенных записей. Нажми «Открыть заявку в GitHub», затем «Submit new issue». Никаких записей ВК эта кнопка сама не меняет.');
+});
+})();
+</script></body></html>
