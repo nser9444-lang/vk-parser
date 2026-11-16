@@ -33,7 +33,7 @@ a{color:#086ab8}code{font-size:12px;background:#f5f8fc;padding:2px 5px}
 <div class="eyebrow">Текста роллы · ВКонтакте</div>
 <h1>Планировщик предложенных новостей</h1>
 <p class="sub">Все предложенные записи → проверка орфографии и пунктуации с ИИ → уместные эмодзи → отложенные публикации ВК на 20 дней. Фотографии и вложения не заменяем.</p>
-<p><a href="./index.html">← К главной странице приложения</a></p>
+<p><a href="./index.html">← К главной странице приложения</a> · <a href="https://vk.ru/app54892559" target="_blank" rel="noopener noreferrer">Открыть приложение ВК</a></p>
 </header>
 
 <section class="panel">
@@ -46,7 +46,8 @@ a{color:#086ab8}code{font-size:12px;background:#f5f8fc;padding:2px 5px}
 <option value="https://vk.ru/delovrolls">Дело в роллах — Краснодар</option>
 <option value="https://vk.ru/bambook_food">Бамбук Фуд — Воронеж</option>
 </datalist>
-<p class="hint">Открывай эту страницу внутри приложения ВК. Нужны права руководителя сообщества и разрешение <b>wall</b>. Ключи доступа на этой странице не сохраняются.</p>
+<p class="hint">Для доступа к предложенным новостям открывай планировщик <b>из приложения ВК</b>. Нужны права руководителя сообщества и разрешение <b>wall</b>. Ключи доступа на странице не сохраняются.</p>
+<div id="environmentStatus" class="info">Проверяем среду запуска…</div>
 <div class="actions">
 <button id="load">Загрузить все предложенные</button>
 <button id="reload" class="secondary" disabled>Обновить список</button>
@@ -105,6 +106,37 @@ function plusDate(iso,n){
 }
 $('startDate').value=plusDate(moscowDate(new Date()),1);
 function status(id,s){$(id).textContent=s;}
+function checkEnvironment(){
+ const bridgePresent=typeof vkBridge!=='undefined';
+ let inVk=null;
+ try {if(bridgePresent&&typeof vkBridge.isWebView==='function')inVk=vkBridge.isWebView();} catch(e){}
+ const launch=/[?&]vk_(?:app_id|user_id|platform)=/.test(location.search);
+ const msg=!bridgePresent
+  ?'⚠️ VK Bridge не загрузился. Попробуй обновить страницу внутри приложения ВК.'
+  :(inVk===false&&!launch)
+   ?'⚠️ Страница открыта вне приложения ВК: здесь разрешение на чтение предложенных записей обычно недоступно. Открой https://vk.ru/app54892559 и выбери «Планировщик роллов».'
+   :'VK Bridge загружен. Можно нажать «Загрузить все предложенные».';
+ status('environmentStatus',msg);
+}
+function sleepTimeout(promise,ms,step){
+ let t;
+ const limit=new Promise((_,reject)=>{t=setTimeout(()=>reject(Error('Не удалось подключиться к ВКонтакте за '+Math.round(ms/1000)+' секунд ('+step+'). Открой https://vk.ru/app54892559, перейди в планировщик и попробуй ещё раз.')),ms);});
+ return Promise.race([promise,limit]).finally(()=>clearTimeout(t));
+}
+async function bridgeSend(method,params,ms=15000){
+ if(typeof vkBridge==='undefined')throw Error('VK Bridge не загружен. Открой приложение во ВКонтакте.');
+ return sleepTimeout(vkBridge.send(method,params),ms,method);
+}
+async function acquireToken(){
+ status('loadStatus','Подключаемся к ВКонтакте: проверяем приложение…');
+ await bridgeSend('VKWebAppInit',undefined,8000);
+ status('loadStatus','Ожидаем разрешение wall от ВКонтакте…');
+ const result=await bridgeSend('VKWebAppGetAuthToken',{app_id:APP_ID,scope:'wall'},25000);
+ if(!result||!result.access_token)throw Error('ВК не предоставил доступ к стене.');
+ token=result.access_token;
+}
+checkEnvironment();
+window.addEventListener('load',checkEnvironment);
 function resetPlan(){
  plan=[];$('plannedCount').textContent='0';$('issueLink').style.display='none';
  $('prepare').disabled=true;status('submitStatus','Пока ничего не отправлено.');
@@ -131,7 +163,7 @@ function render(){
 async function api(method,params,canRetry=true){
  for(let attempt=0;attempt<(canRetry?4:1);attempt++){
   try{
-   const r=await vkBridge.send('VKWebAppCallAPIMethod',{method,params:{...params,access_token:token,v:VERSION}});
+   const r=await bridgeSend('VKWebAppCallAPIMethod',{method,params:{...params,access_token:token,v:VERSION}},18000);
    if(r&&r.error)throw r.error;
    return r.response??r;
   }catch(e){
@@ -156,14 +188,9 @@ async function resolveGroup(text){
 }
 async function checkAll(){
  const button=$('checkAll');button.disabled=true;
+ status('accessStatus','Проверка началась: запрашиваем доступ ВКонтакте…');
  try{
-  if(typeof vkBridge==='undefined')throw Error('Открой приложение во ВКонтакте.');
-  await vkBridge.send('VKWebAppInit');
-  if(!token){
-   const t=await vkBridge.send('VKWebAppGetAuthToken',{app_id:APP_ID,scope:'wall'});
-   token=t.access_token;
-  }
-  if(!token)throw Error('Нет разрешения wall.');
+  if(!token)await acquireToken();
   const checks=[
    ['Суши Тайм — Воронеж','sushitime36'],
    ['Суши Тайм — Старый Оскол','sushitime_so'],
@@ -202,12 +229,9 @@ async function load(){
  if(loading)return;
  loading=true;resetPlan();suggests=[];postponed=[];render();
  $('load').disabled=true;$('reload').disabled=true;$('calculate').disabled=true;
+ status('loadStatus','Подключение началось…');
  try{
-  if(typeof vkBridge==='undefined')throw Error('VK Bridge не загружен. Открой приложение внутри ВКонтакте.');
-  await vkBridge.send('VKWebAppInit');
-  const result=await vkBridge.send('VKWebAppGetAuthToken',{app_id:APP_ID,scope:'wall'});
-  token=result.access_token;
-  if(!token)throw Error('ВК не предоставил доступ к стене.');
+  if(!token)await acquireToken();
   groupId=await resolveGroup($('group').value);
   groupName='Сообщество club'+groupId;
   suggests=await loadWall('suggests');
