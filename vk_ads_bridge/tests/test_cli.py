@@ -1,4 +1,6 @@
 import json
+import contextlib
+import io
 import os
 import tempfile
 import unittest
@@ -7,7 +9,7 @@ from unittest.mock import patch, MagicMock
 
 from PIL import Image
 
-from vk_ads_bridge.cli import IntegrationError, VKAds, prepare, do_upload
+from vk_ads_bridge.cli import IntegrationError, VKAds, prepare, do_upload, main
 
 
 class VKAdsUploadTests(unittest.TestCase):
@@ -32,6 +34,22 @@ class VKAdsUploadTests(unittest.TestCase):
 
     def save_job(self):
         self.spec_path.write_text(json.dumps(self.job, ensure_ascii=False), encoding="utf-8")
+
+    def test_inspect_group_reads_only_and_reports_blocked(self):
+        output = io.StringIO()
+        with patch("vk_ads_bridge.cli.VKAds") as klass, \
+             patch("sys.argv", ["cli.py", "group", "--id", "12345"]), \
+             contextlib.redirect_stdout(output):
+            klass.return_value.ad_group.return_value = {
+                "id": 12345, "status": "blocked", "package_id": 3122
+            }
+            self.assertEqual(main(), 0)
+            klass.return_value.ad_group.assert_called_once_with(12345)
+            klass.return_value.add_banner.assert_not_called()
+            klass.return_value.upload.assert_not_called()
+        parsed = json.loads(output.getvalue())
+        self.assertTrue(parsed["safe_to_upload"])
+        self.assertEqual(parsed["package_id"], 3122)
 
     def test_ready_bearer_token_needs_no_client_credentials(self):
         session = MagicMock()
