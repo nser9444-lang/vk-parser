@@ -13,35 +13,45 @@ def tryget(api,path,params=None):
 def main():
     api=VKAds(os.getenv("VK_ADS_CLIENT_ID",""),os.getenv("VK_ADS_CLIENT_SECRET",""))
     result={"read_only":True}
-    package=tryget(api,"/api/v2/packages/3127.json",
-                    {"fields":"id,name,description,banner_format_id,related_package_ids,objective"})
-    result["package_3127"]={k:package.get(k) for k in
-        ("id","name","description","banner_format_id","related_package_ids","objective","request_error_class","error")
-        if k in package}
-    fmt_id=package.get("banner_format_id")
-    if isinstance(fmt_id,int):
-        banner_fmt=tryget(api,f"/api/v2/banner_formats/{fmt_id}.json")
-        result["banner_format"]={k:v for k,v in banner_fmt.items() if k in
-                                ("id","name","description","status","patterns","pattern_ids","request_error_class","error")}
-    pats=[]
-    for offset in range(0,5000,100):
-        response=tryget(api,"/api/v2/banner_patterns.json",
-            {"fields":"id,name,description,format,status","limit":100,"offset":offset})
-        if "request_error_class" in response:
-            result["patterns_error"]=response["error"]
-            break
-        rows=response.get("items",[])
-        if not isinstance(rows,list):
-            break
-        for p in rows:
-            roles=[str(x.get("role","")) for x in p.get("format",[]) if isinstance(x,dict)]
-            # Keep carousel patterns only (no personally identifying values).
-            if "slide" in str(p.get("name","")).lower() or any("slide" in k.lower() for k in roles):
-                pats.append({"id":p.get("id"),"name":p.get("name"),"status":p.get("status"),
-                             "roles":roles[:45]})
-        if len(rows)<100:
-            break
-    result["carousel_patterns"]=pats[:30]
+    package_queries=[
+        ("/api/v2/packages.json",{"_id":3127,"fields":"id,name,banner_format_id,description","limit":10}),
+        ("/api/v2/packages.json",{"_id":3127,"limit":10}),
+        ("/api/v2/packages/3127.json",None),
+    ]
+    result["packages"]=[]
+    for path,params in package_queries:
+        data=tryget(api,path,params)
+        summary={"endpoint":path, "params":params,"response_type":type(data).__name__}
+        if isinstance(data,dict):
+            summary["keys"]=list(data.keys())[:15]
+            if "items" in data:
+                summary["rows"]=[{k:x.get(k) for k in ("id","name","description","banner_format_id")}
+                                 for x in data.get("items",[])[:5] if isinstance(x,dict)]
+            else:
+                summary["object"]={k:data.get(k) for k in
+                    ("id","name","description","banner_format_id","request_error_class","error") if k in data}
+        result["packages"].append(summary)
+    pattern_queries=[
+        None,
+        {"limit":10},
+        {"limit":10,"fields":"id,name,status"},
+        {"limit":10,"fields":"id,name,format,status"}
+    ]
+    result["patterns"]=[]
+    for params in pattern_queries:
+        data=tryget(api,"/api/v2/banner_patterns.json",params)
+        summary={"params":params,"response_type":type(data).__name__}
+        if isinstance(data,dict):
+            summary["keys"]=list(data.keys())[:10]
+            summary["count"]=data.get("count")
+            if "items" in data:
+                summary["sample"]=[{"id":x.get("id"),"name":x.get("name"),
+                                    "roles":[str(y.get("role")) for y in x.get("format",[])
+                                             if isinstance(y,dict)]}
+                                   for x in data["items"][:3] if isinstance(x,dict)]
+            else:
+                summary["error"]=str(data.get("error",""))[:120]
+        result["patterns"].append(summary)
     print(json.dumps(result,ensure_ascii=False,indent=2))
     return 0
 
