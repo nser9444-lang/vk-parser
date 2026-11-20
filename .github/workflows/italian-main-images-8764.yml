@@ -2,7 +2,9 @@ name: "ITALIAN SUNRISE — исправить блок Изображения 87
 on:
   push:
     branches: [main]
-    paths: [".github/workflows/italian-main-images-8764.yml"]
+    paths:
+      - ".github/workflows/italian-main-images-8764.yml"
+      - "vk_ads_bridge/fix_main_images_8764.py"
 
 permissions:
   contents: read

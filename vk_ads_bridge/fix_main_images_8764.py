@@ -13,6 +13,7 @@ from __future__ import annotations
 import json
 import os
 import sys
+import time
 from pathlib import Path
 
 from PIL import Image
@@ -30,6 +31,26 @@ BASE_IMAGE_ROLES={"image_600x600","icon_256x256"}
 FULL_IMAGE_ROLES=BASE_IMAGE_ROLES | set(ADDITIONAL_IMAGES)
 PREFIX="image_600x600_slide_"
 DIR=ROOT / "main_images"
+
+class ThrottledVKAds(VKAds):
+    """Space requests and retry transient VK Ads 429 responses."""
+    def request(self, method, path, *, params=None, json_body=None, data=None, files=None):
+        for attempt in range(6):
+            # VK Ads response indicates one request allowed in each rate window.
+            time.sleep(1.8)
+            try:
+                return super().request(
+                    method, path, params=params, json_body=json_body,
+                    data=data, files=files)
+            except IntegrationError as exc:
+                if "HTTP 429" not in str(exc) or attempt == 5:
+                    raise
+                delay=min(6*(attempt+1),30)
+                print(f"VK Ads API временно ограничил запросы; повтор после {delay} сек.",
+                      file=sys.stderr)
+                time.sleep(delay)
+        raise IntegrationError("Не удалось обойти ограничение частоты API")
+
 
 
 def identify_carousel_roles(content: dict)->list[str]:
@@ -70,7 +91,7 @@ def main()->int:
     try:
         require(os.environ.get("VK_ADS_ALLOW_MAIN_IMAGES_FIX")=="1",
                 "Исправление должно быть явно разрешено")
-        api=VKAds()
+        api=ThrottledVKAds()
         group=api.ad_group(GROUP_ID)
         require(group.get("id")==GROUP_ID and
                 group.get("ad_plan_id")==CAMPAIGN_ID and
@@ -92,14 +113,20 @@ def main()->int:
                   "main_images": sorted(FULL_IMAGE_ROLES), "carousel_slides":0,
                   "group_id":GROUP_ID,"banner_id":BANNER_ID},ensure_ascii=False))
             return 0
-        prepared=prepare_original_product_creatives()
-        image_ids={role:{"id":api.upload(media)} for role,media in prepared.items()}
-        # Phase 1: preserve existing media including carousel until main images are confirmed.
-        before_update=minimal_ids(ad.get("content"),"content")
-        before_update.update(image_ids)
-        require(api.ad_group(GROUP_ID).get("status")=="blocked",
-                "Группу включили; обновление остановлено")
-        api.request("POST",path,json_body={"status":"blocked","content":before_update})
+        if FULL_IMAGE_ROLES.issubset(original_content):
+            # Previous run may have saved formats before receiving a 429.
+            # Reuse those IDs rather than uploading duplicate photos.
+            image_ids={role:original_content[role] for role in ADDITIONAL_IMAGES}
+        else:
+            prepared=prepare_original_product_creatives()
+            image_ids={role:{"id":api.upload(media)}
+                       for role,media in prepared.items()}
+            # Phase 1: preserve existing media including carousel until main images confirmed.
+            before_update=dict(original_content)
+            before_update.update(image_ids)
+            require(api.ad_group(GROUP_ID).get("status")=="blocked",
+                    "Группу включили; обновление остановлено")
+            api.request("POST",path,json_body={"status":"blocked","content":before_update})
         confirmed=api.request("GET",path,params=params)
         content_after=minimal_ids(confirmed.get("content"),"content после загрузки")
         require(confirmed.get("status")=="blocked" and
