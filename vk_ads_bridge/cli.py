@@ -100,13 +100,21 @@ def prepare(spec_path: Path) -> tuple[dict, list[dict], str]:
 
 
 class VKAds:
-    def __init__(self, client_id: str, client_secret: str, session=None):
-        require(bool(client_id and client_secret),
-                "Настройте VK_ADS_CLIENT_ID и VK_ADS_CLIENT_SECRET в защищённом окружении")
+    def __init__(self, client_id: str = "", client_secret: str = "",
+                 session=None, access_token: str | None = None):
+        # Агентский кабинет может выдать готовый Bearer access_token без client credentials.
+        value = access_token if access_token is not None else os.getenv("VK_ADS_ACCESS_TOKEN", "")
+        value = value.strip()
+        if value.lower().startswith("bearer "):
+            value = value[7:].strip()
+        require("\r" not in value and "\n" not in value,
+                "В токене обнаружен недопустимый перенос строки")
+        require(bool(value or (client_id and client_secret)),
+                "Нужен VK_ADS_ACCESS_TOKEN или пара VK_ADS_CLIENT_ID/VK_ADS_CLIENT_SECRET")
         self.client_id = client_id
         self.client_secret = client_secret
         self.session = session or requests.Session()
-        self._token = None
+        self._token = value or None
 
     def token(self) -> str:
         if not self._token:
@@ -248,6 +256,7 @@ def main() -> int:
     validate_parser = sub.add_parser("validate", help="Проверить JSON и изображения без сети")
     validate_parser.add_argument("spec", type=Path)
     sub.add_parser("groups", help="Получить список рекламных групп через API")
+    sub.add_parser("check", help="Только чтение: проверить токен, не выводя данные кабинета")
     upload_parser = sub.add_parser("upload", help="Загрузить объявления в остановленную группу")
     upload_parser.add_argument("spec", type=Path)
     upload_parser.add_argument("--apply", action="store_true", required=True)
@@ -261,10 +270,17 @@ def main() -> int:
                       "count": len(ads), "digest": digest,
                       "images": [{k: [p["width"], p["height"]]
                                   for k, p in ad["content"].items()} for ad in ads]}
-        elif args.command == "groups":
+        elif args.command in ("groups", "check"):
             client = VKAds(os.getenv("VK_ADS_CLIENT_ID", ""),
                            os.getenv("VK_ADS_CLIENT_SECRET", ""))
-            result = client.list_groups()
+            groups = client.list_groups()
+            if args.command == "check":
+                require(isinstance(groups, dict) and isinstance(groups.get("items"), list),
+                        "VK Ads не вернул ожидаемый список групп; формат токена или API проверьте")
+                result = {"connected": True, "mode": "read_only",
+                          "groups_in_first_page": len(groups["items"])}
+            else:
+                result = groups
         else:
             result = do_upload(args.spec, args.confirm_group_id, args.receipt_dir)
         print(json.dumps(result, ensure_ascii=False, indent=2))
