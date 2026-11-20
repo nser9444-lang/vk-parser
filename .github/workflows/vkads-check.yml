@@ -1,0 +1,32 @@
+name: "VK Ads — проверить подключение"
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify-token:
+    name: "Проверка API только на чтение"
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      VK_ADS_ACCESS_TOKEN: ${{ secrets.VK_ADS_ACCESS_TOKEN }}
+      VK_ADS_CLIENT_ID: ${{ secrets.VK_ADS_CLIENT_ID }}
+      VK_ADS_CLIENT_SECRET: ${{ secrets.VK_ADS_CLIENT_SECRET }}
+    steps:
+      - name: "Убедиться, что выбрана основная ветка"
+        shell: bash
+        run: |
+          if [ "$GITHUB_REF" != "refs/heads/main" ]; then
+            echo "Выберите main" >&2
+            exit 1
+          fi
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: "Установить зависимости"
+        run: python -m pip install -r vk_ads_bridge/requirements.txt
+      - name: "Проверить токен без изменения кабинета"
+        run: python vk_ads_bridge/cli.py check

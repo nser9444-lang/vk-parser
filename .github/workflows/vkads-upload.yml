@@ -26,6 +26,7 @@ jobs:
     env:
       SPEC_PATH: ${{ inputs.spec_path }}
       GROUP_ID: ${{ inputs.group_id }}
+      VK_ADS_ACCESS_TOKEN: ${{ secrets.VK_ADS_ACCESS_TOKEN }}
       VK_ADS_CLIENT_ID: ${{ secrets.VK_ADS_CLIENT_ID }}
       VK_ADS_CLIENT_SECRET: ${{ secrets.VK_ADS_CLIENT_SECRET }}
       VK_ADS_ALLOW_CREATE: "1"
@@ -50,8 +51,8 @@ jobs:
       - name: "Проверка секретов"
         shell: bash
         run: |
-          if [ -z "$VK_ADS_CLIENT_ID" ] || [ -z "$VK_ADS_CLIENT_SECRET" ]; then
-            echo "Нет секретов VK_ADS_CLIENT_ID / VK_ADS_CLIENT_SECRET в настройках GitHub" >&2
+          if [ -z "$VK_ADS_ACCESS_TOKEN" ] && { [ -z "$VK_ADS_CLIENT_ID" ] || [ -z "$VK_ADS_CLIENT_SECRET" ]; }; then
+            echo "Добавьте VK_ADS_ACCESS_TOKEN или оба секрета VK_ADS_CLIENT_ID / VK_ADS_CLIENT_SECRET" >&2
             exit 1
           fi
       - name: "Загрузка креативов в остановленную группу"
