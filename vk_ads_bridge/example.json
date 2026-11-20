@@ -1,0 +1,27 @@
+{
+  "ad_group_id": 1234567,
+  "landing_url": "https://vk.ru/italiansunrise_sochi",
+  "ads": [
+    {
+      "name": "ITALIAN SUNRISE | Пальто | Вариант 1",
+      "content": {
+        "icon_256x256": "assets/icon256.png",
+        "image_1080x607": "assets/landscape1080x607.jpg"
+      },
+      "textblocks": {
+        "text_2000": {
+          "text": "Здесь укажите проверенный текст о конкретном товаре и его цене."
+        },
+        "title_40_vkads": {
+          "text": "Заголовок объявления"
+        },
+        "cta_community_vk": {
+          "text": "signUp"
+        },
+        "about_company_115": {
+          "text": "Укажите проверенные юридические сведения рекламодателя"
+        }
+      }
+    }
+  ]
+}
