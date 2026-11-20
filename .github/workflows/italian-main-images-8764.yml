@@ -1,0 +1,46 @@
+name: "ITALIAN SUNRISE — исправить блок Изображения 8764"
+on:
+  push:
+    branches: [main]
+    paths: [".github/workflows/italian-main-images-8764.yml"]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: vkads-italian-sunrise-images-8764
+  cancel-in-progress: false
+
+jobs:
+  correct:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    env:
+      VK_ADS_ACCESS_TOKEN: ${{ secrets.VK_ADS_TOKEN_ITALIAN_SUNRISE }}
+      VK_ADS_ALLOW_MAIN_IMAGES_FIX: "1"
+    steps:
+      - name: "Проверить токен"
+        shell: bash
+        run: |
+          if [ -z "$VK_ADS_ACCESS_TOKEN" ]; then
+            echo "::error::Нет секрета ITALIAN SUNRISE"
+            exit 1
+          fi
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: "Зависимости"
+        run: python -m pip install -r vk_ads_bridge/requirements.txt
+      - name: "Тесты VK Ads интеграции"
+        run: python -m unittest discover -s vk_ads_bridge/tests -v
+      - name: "Заполнить Изображения (1:1, 4:5, 16:9, 9:16), убрать карусель, проверить API"
+        run: python -m vk_ads_bridge.fix_main_images_8764
+      - name: "Сохранить изображения и отчёт"
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: italian-sunrise-8764-main-images
+          path: vk_ads_bridge/test_8764/main_images/
+          if-no-files-found: ignore
+          retention-days: 30
