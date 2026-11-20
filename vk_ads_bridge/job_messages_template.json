@@ -7,7 +7,10 @@
     "name": "Пальто | Сегмент 35–45 | Вариант 1",
     "content": {
       "icon_256x256": "assets/palto-icon-256.png",
-      "image_1080x607": "assets/palto-1080x607.png"
+      "image_600x600": "assets/palto-600x600.png",
+      "image_600x600_slide_1": "assets/palto-photo-1-600x600.png",
+      "image_600x600_slide_2": "assets/palto-photo-2-600x600.png",
+      "image_600x600_slide_3": "assets/palto-photo-3-600x600.png"
     },
     "textblocks": {
       "title_40_vkads": {
