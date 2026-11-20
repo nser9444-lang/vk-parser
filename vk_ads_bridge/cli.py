@@ -136,7 +136,25 @@ class VKAds:
             try:
                 obj = response.json()
                 err = obj.get("error", obj)
-                msg = str(err.get("message", err))[:500] if isinstance(err, dict) else str(err)[:500]
+                msg = str(err.get("message", err))[:250] if isinstance(err, dict) else str(err)[:250]
+                # API validation responses contain structured field errors.
+                # Report field paths + error codes only; never echo user text,
+                # account details, request bodies or credentials.
+                if isinstance(err, dict) and isinstance(err.get("fields"), dict):
+                    details = []
+                    def codes(value, path="", depth=0):
+                        if len(details) >= 20 or depth > 5 or not isinstance(value, dict):
+                            return
+                        if "code" in value:
+                            code = re.sub(r"[^a-zA-Z0-9_-]", "", str(value["code"]))[:60]
+                            details.append(path + ":" + code)
+                            return
+                        for key, child in value.items():
+                            key = re.sub(r"[^a-zA-Z0-9_-]", "", str(key))[:60]
+                            codes(child, (path + "." if path else "") + key, depth + 1)
+                    codes(err["fields"])
+                    if details:
+                        msg += "; поля: " + ", ".join(details)[:950]
             except (ValueError, TypeError):
                 msg = f"HTTP {response.status_code}"
             raise IntegrationError(f"{operation}: HTTP {response.status_code}; {msg}")
