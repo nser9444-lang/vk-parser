@@ -49,7 +49,7 @@ class VKAdsUploadTests(unittest.TestCase):
 
     def test_token_injection_is_rejected(self):
         with self.assertRaisesRegex(IntegrationError, "перенос строки"):
-            VKAds(access_token="token\\r\\nBad: header")
+            VKAds(access_token="token\r\nBad: header")
 
     def test_no_token_or_credentials_rejected(self):
         with patch.dict(os.environ, {"VK_ADS_ACCESS_TOKEN": ""}):
