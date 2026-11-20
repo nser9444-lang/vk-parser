@@ -257,6 +257,8 @@ def main() -> int:
     validate_parser.add_argument("spec", type=Path)
     sub.add_parser("groups", help="Получить список рекламных групп через API")
     sub.add_parser("check", help="Только чтение: проверить токен, не выводя данные кабинета")
+    group_parser = sub.add_parser("group", help="Проверить одну группу без изменения кабинета")
+    group_parser.add_argument("--id", type=int, required=True)
     upload_parser = sub.add_parser("upload", help="Загрузить объявления в остановленную группу")
     upload_parser.add_argument("spec", type=Path)
     upload_parser.add_argument("--apply", action="store_true", required=True)
@@ -270,6 +272,18 @@ def main() -> int:
                       "count": len(ads), "digest": digest,
                       "images": [{k: [p["width"], p["height"]]
                                   for k, p in ad["content"].items()} for ad in ads]}
+        elif args.command == "group":
+            client = VKAds(os.getenv("VK_ADS_CLIENT_ID", ""),
+                           os.getenv("VK_ADS_CLIENT_SECRET", ""))
+            group_id = positive_id(args.id, "group_id")
+            group = client.ad_group(group_id)
+            require(group.get("id") == group_id, "Неверный ответ API для группы")
+            status = group.get("status")
+            require(status in ("active", "blocked", "deleted"),
+                    "Неизвестный статус группы: создание объявлений запрещено")
+            result = {"group_id": group_id, "status": status,
+                      "safe_to_upload": status == "blocked",
+                      "package_id": group.get("package_id")}
         elif args.command in ("groups", "check"):
             client = VKAds(os.getenv("VK_ADS_CLIENT_ID", ""),
                            os.getenv("VK_ADS_CLIENT_SECRET", ""))
