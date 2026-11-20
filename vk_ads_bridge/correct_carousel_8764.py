@@ -84,11 +84,6 @@ def main() -> int:
                 "Не найдены обязательные поля существующего объявления")
         # VK carousel pattern 256: title_40_vkads, text_220, about_company_115,
         # cta_community_vk; slide patterns 243,245,246: image_600x600_slide_1..3
-        texts["text_220"]={"text":
-            "Жакет с акцентными плечами и прямые брюки: костюм, который подойдёт "
-            "не только для офиса. Сейчас 9 750 ₽ вместо 19 500 ₽. "
-            "Напишите «+» в сообщения — поможем с подбором и уточним наличие."}
-        require(len(texts["text_220"]["text"])<=220,"Текст карусели слишком длинный")
         imgpaths=create_carousel_images()
         uploads={}
         for key,path in zip(THREE_FIELDS,imgpaths):
