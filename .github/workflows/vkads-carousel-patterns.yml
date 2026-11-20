@@ -1,0 +1,21 @@
+name: "ITALIAN SUNRISE — найти поля карусели"
+on:
+  push:
+    branches: [main]
+    paths: [".github/workflows/vkads-carousel-patterns.yml"]
+permissions:
+  contents: read
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      VK_ADS_ACCESS_TOKEN: ${{ secrets.VK_ADS_TOKEN_ITALIAN_SUNRISE }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: python -m pip install -r vk_ads_bridge/requirements.txt
+      - name: "Определить поля изображений карусели (GET-only)"
+        run: python -m vk_ads_bridge.probe_carousel_roles
