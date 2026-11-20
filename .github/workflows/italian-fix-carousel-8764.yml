@@ -5,6 +5,7 @@ on:
     paths:
       - ".github/workflows/italian-fix-carousel-8764.yml"
       - "vk_ads_bridge/cli.py"
+      - "vk_ads_bridge/correct_carousel_8764.py"
 
 permissions:
   contents: read
