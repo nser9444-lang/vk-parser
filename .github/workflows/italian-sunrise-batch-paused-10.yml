@@ -1,0 +1,72 @@
+name: "ITALIAN SUNRISE — batch 10 paused product groups"
+on:
+  issues:
+    types: [opened]
+permissions:
+  contents: read
+  issues: read
+concurrency:
+  group: italian-sunrise-paused-10-20261120
+  cancel-in-progress: false
+jobs:
+  upload-10:
+    if: >-
+      github.actor == 'nser9444-lang' &&
+      github.event.issue.user.login == 'nser9444-lang' &&
+      github.event.issue.title == '[ITALIAN SUNRISE VKADS] UPLOAD 10 PAUSED ADS' &&
+      github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    env:
+      VK_ADS_ACCESS_TOKEN: ${{ secrets.VK_ADS_TOKEN_ITALIAN_SUNRISE }}
+      VK_ADS_ALLOW_CREATE: "1"
+      CONFIRM_BATCH: YES_CREATE_PAUSED_10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Dependencies
+        run: python -m pip install -r vk_ads_bridge/requirements.txt
+      - name: Tests of existing bridge
+        run: python -m unittest discover -s vk_ads_bridge/tests -v
+      - name: Validate secret is configured
+        shell: bash
+        run: |
+          if [ -z "$VK_ADS_ACCESS_TOKEN" ]; then
+            echo "::error::Missing VK Ads token secret"
+            exit 1
+          fi
+      - name: Decode pinned batch uploader (hash-checked post photos)
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import base64,zlib
+          src=Path('vk_ads_bridge/batches/upload_italian_2026_11_20.b64z')
+          dest=Path('/tmp/is_vkads_batch.py')
+          dest.write_bytes(zlib.decompress(base64.b64decode(src.read_text().strip())))
+          print('batch tool decoded, bytes:',dest.stat().st_size)
+          PY
+      - name: Create ten paused ad groups and three paused ads in each
+        shell: bash
+        env:
+          PYTHONPATH: ${{ github.workspace }}
+        run: python /tmp/is_vkads_batch.py
+      - name: Save receipts for audit and manual review
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: italian-sunrise-10-paused-groups-receipts
+          path: vkads-receipts/italian_2026_11_20/
+          if-no-files-found: ignore
+          retention-days: 30
+      - name: Save rendered authentic-photo previews
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: italian-sunrise-rendered-creatives
+          path: vkads-rendered/italian_2026_11_20/*/*.jpg
+          if-no-files-found: ignore
+          retention-days: 7
