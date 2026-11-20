@@ -20,6 +20,9 @@ class OneAdPerGroupTests(unittest.TestCase):
         (self.root / "assets").mkdir()
         Image.new("RGB", (256, 256), "#ffffff").save(self.root / "assets" / "icon.jpg")
         Image.new("RGB", (600, 600), "#ffffff").save(self.root / "assets" / "square.jpg")
+        for i, color in enumerate(("red", "green", "blue"), 1):
+            Image.new("RGB", (600, 600), color).save(
+                self.root / "assets" / f"slide_{i}.jpg")
         self.spec = self.root / "job.json"
         self.data = {
             "campaign_id": CAMPAIGN_ID,
@@ -30,7 +33,10 @@ class OneAdPerGroupTests(unittest.TestCase):
                 "name": "Тест №1 — сообщения",
                 "content": {
                     "icon_256x256": "assets/icon.jpg",
-                    "image_600x600": "assets/square.jpg"
+                    "image_600x600": "assets/square.jpg",
+                    "image_600x600_slide_1": "assets/slide_1.jpg",
+                    "image_600x600_slide_2": "assets/slide_2.jpg",
+                    "image_600x600_slide_3": "assets/slide_3.jpg"
                 },
                 "textblocks": {
                     "text_2000": {"text": "Реальный текст о товаре после проверки."},
@@ -59,6 +65,7 @@ class OneAdPerGroupTests(unittest.TestCase):
                          receipt_dir=self.root / "receipts")
         self.assertEqual(result["mode"], "dry_run")
         self.assertEqual(result["ad_count"], 1)
+        self.assertEqual(result["photo_slides"], 3)
         self.assertEqual(result["status_on_create"], "blocked")
         self.assertFalse((self.root / "receipts").exists())
 
@@ -78,6 +85,18 @@ class OneAdPerGroupTests(unittest.TestCase):
         self.data["ad"]["textblocks"]["cta_community_vk"]["text"] = "signUp"
         self.save()
         with self.assertRaises(IntegrationError):
+            load_spec(self.spec)
+
+    def test_missing_third_photo_rejected(self):
+        del self.data["ad"]["content"]["image_600x600_slide_3"]
+        self.save()
+        with self.assertRaisesRegex(IntegrationError, "3–6"):
+            load_spec(self.spec)
+
+    def test_duplicate_photo_rejected(self):
+        self.data["ad"]["content"]["image_600x600_slide_2"] = "assets/slide_1.jpg"
+        self.save()
+        with self.assertRaisesRegex(IntegrationError, "различаться"):
             load_spec(self.spec)
 
     def test_wrong_image_dimensions_rejected(self):
@@ -116,6 +135,14 @@ class OneAdPerGroupTests(unittest.TestCase):
             if method == "GET" and path == "/api/v2/banners.json":
                 return {"items": [{"id": 253378451,
                        "textblocks": {"about_company_115": {"text": "Проверенная юридическая информация"}}}]}
+            if method == "GET" and path == "/api/v2/banners/999.json":
+                return {"id": 999, "status": "blocked", "content": {
+                    "image_600x600_slide_1": {"id": 903},
+                    "image_600x600_slide_2": {"id": 904},
+                    "image_600x600_slide_3": {"id": 905},
+                    "image_600x600": {"id": 902},
+                    "icon_256x256": {"id": 901},
+                }}
             if method == "POST" and path == "/api/v2/ad_groups.json":
                 payload = kwargs["json_body"]
                 self.assertEqual(payload["status"], "blocked")
@@ -129,7 +156,7 @@ class OneAdPerGroupTests(unittest.TestCase):
 
         api.request.side_effect = request
         api.register_url.return_value = 900
-        api.upload.side_effect = [901, 902]
+        api.upload.side_effect = [901, 902, 903, 904, 905]
         api.ad_group.return_value = {"id": 888, "ad_plan_id": CAMPAIGN_ID,
                                      "status": "blocked"}
         api.banner.return_value = {"id": 999, "status": "blocked"}
@@ -140,7 +167,8 @@ class OneAdPerGroupTests(unittest.TestCase):
         self.assertEqual(result["group_id"], 888)
         self.assertEqual(result["banner_ids"], [999])
         self.assertEqual(result["group_status"], "blocked")
-        self.assertEqual(api.upload.call_count, 2)
+        self.assertEqual(api.upload.call_count, 5)
+        self.assertEqual(result["carousel_slides_saved"], 3)
         api.stop_banner.assert_not_called()
         post_count = sum(1 for call in api.request.call_args_list
                          if call.args[0] == "POST")
