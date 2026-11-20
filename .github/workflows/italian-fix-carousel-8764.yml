@@ -1,0 +1,43 @@
+name: "ITALIAN SUNRISE — добавить три фото в объявление 253388295"
+on:
+  push:
+    branches: [main]
+    paths: [".github/workflows/italian-fix-carousel-8764.yml"]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: vkads-italian-fix-8764
+  cancel-in-progress: false
+
+jobs:
+  correct:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    env:
+      VK_ADS_ACCESS_TOKEN: ${{ secrets.VK_ADS_TOKEN_ITALIAN_SUNRISE }}
+      VK_ADS_ALLOW_CORRECT_CAROUSEL: "1"
+    steps:
+      - name: "Проверить секрет API"
+        shell: bash
+        run: |
+          if [ -z "$VK_ADS_ACCESS_TOKEN" ]; then
+            echo "::error::Нет VK_ADS_TOKEN_ITALIAN_SUNRISE"
+            exit 1
+          fi
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: python -m pip install -r vk_ads_bridge/requirements.txt
+      - name: "Исправить существующее объявление — добавить 3 отдельных слайда"
+        run: python -m vk_ads_bridge.correct_carousel_8764
+      - name: "Сохранить использованные три фото и проверку"
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: italian-sunrise-8764-three-photo-slides
+          path: vk_ads_bridge/test_8764/carousel_3_photos/
+          if-no-files-found: ignore
+          retention-days: 30
