@@ -3,11 +3,11 @@ import os
 import tempfile
 import unittest
 from pathlib import Path
-from unittest.mock import patch
+from unittest.mock import patch, MagicMock
 
 from PIL import Image
 
-from vk_ads_bridge.cli import IntegrationError, prepare, do_upload
+from vk_ads_bridge.cli import IntegrationError, VKAds, prepare, do_upload
 
 
 class VKAdsUploadTests(unittest.TestCase):
@@ -32,6 +32,29 @@ class VKAdsUploadTests(unittest.TestCase):
 
     def save_job(self):
         self.spec_path.write_text(json.dumps(self.job, ensure_ascii=False), encoding="utf-8")
+
+    def test_ready_bearer_token_needs_no_client_credentials(self):
+        session = MagicMock()
+        response = session.request.return_value
+        response.status_code = 200
+        response.content = b'{"count":0,"items":[]}'
+        response.json.return_value = {"count": 0, "items": []}
+        with patch.dict(os.environ, {"VK_ADS_ACCESS_TOKEN": "Bearer test-agency-token"}):
+            client = VKAds(session=session)
+            result = client.list_groups()
+        self.assertEqual(result["count"], 0)
+        self.assertEqual(session.request.call_args.kwargs["headers"],
+                         {"Authorization": "Bearer test-agency-token"})
+        session.post.assert_not_called()
+
+    def test_token_injection_is_rejected(self):
+        with self.assertRaisesRegex(IntegrationError, "перенос строки"):
+            VKAds(access_token="token\\r\\nBad: header")
+
+    def test_no_token_or_credentials_rejected(self):
+        with patch.dict(os.environ, {"VK_ADS_ACCESS_TOKEN": ""}):
+            with self.assertRaisesRegex(IntegrationError, "Нужен VK_ADS_ACCESS_TOKEN"):
+                VKAds()
 
     def test_validate_good_job_without_network(self):
         doc, ads, fingerprint = prepare(self.spec_path)
