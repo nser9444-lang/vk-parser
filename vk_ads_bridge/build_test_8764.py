@@ -159,15 +159,24 @@ def main():
         image.save(ASSETS/name,quality=94,optimize=True)
         manifest["renders"].append({"file":name,"width":w,"height":h,
                                     "text_area_ratio":round(share,4)})
-    # Three true separate photo slides; no synthesizing or cropping the clothing.
-    for i, photo in enumerate(photos[:3], 1):
-        fitted = ImageOps.contain(photo, (600,600), method=Image.Resampling.LANCZOS)
-        out = Image.new("RGB", (600,600), (243,243,242))
-        out.paste(fitted, ((600-fitted.width)//2, (600-fitted.height)//2))
-        filename = f"carousel_photo_{i}.jpg"
-        out.save(ASSETS/filename, quality=95)
-        manifest["renders"].append({"file":filename,"width":600,"height":600,
-                                    "type":"separate_original_product_photo"})
+    # Primary Images in VK Ads, NOT Carousel Slides.
+    # Three original product shots (verified at download) across 4 aspect ratios.
+    api_images=[
+        ("main_4_5.jpg",(1080,1350),"portrait",2),
+        ("main_16_9.jpg",(1080,607),"wide",0),
+        ("main_9_16.jpg",(607,1080),"story",1)
+    ]
+    for name,size,kind,photo_index in api_images:
+        originals=list(photos)
+        originals[2]=photos[photo_index]
+        if kind=="story":
+            out,area=render(originals,1080,1920,"story")
+            out=out.resize(size,Image.Resampling.LANCZOS)
+        else:
+            out,area=render(originals,*size,kind)
+        out.save(ASSETS/name,quality=95)
+        manifest["renders"].append({"file":name,"width":size[0],"height":size[1],
+                                    "text_area_ratio":round(area,4),"type":"main_image"})
     text=("Нужен костюм для встреч и выходов, но не хочется выглядеть как в строгой офисной форме? "
           "У этой модели жакет с акцентными плечами и поясом, а брюки — прямого кроя. "
           "Получается выразительный образ без сложного подбора комплекта.\n\n"
@@ -181,9 +190,9 @@ def main():
        "ad":{"name":"Костюм чёрный | 9 750 ₽ | Пост 8764",
              "content":{"icon_256x256":"assets/ad_icon_256.jpg",
                         "image_600x600":"assets/ad_image_600x600.jpg",
-                        "image_600x600_slide_1":"assets/carousel_photo_1.jpg",
-                        "image_600x600_slide_2":"assets/carousel_photo_2.jpg",
-                        "image_600x600_slide_3":"assets/carousel_photo_3.jpg"},
+                        "image_4_5":"assets/main_4_5.jpg",
+                        "image_1080x607":"assets/main_16_9.jpg",
+                        "image_607x1080":"assets/main_9_16.jpg"},
              "textblocks":{"text_2000":{"text":text},
                            "title_40_vkads":{"text":"Не только для офиса"},
                            "cta_community_vk":{"text":"contactUs"},
