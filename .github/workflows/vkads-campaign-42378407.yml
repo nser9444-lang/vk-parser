@@ -1,0 +1,46 @@
+name: "ITALIAN SUNRISE — группы кампании 42378407"
+on:
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/vkads-campaign-42378407.yml"
+  workflow_dispatch:
+    inputs:
+      campaign_id:
+        description: "ID рекламной кампании"
+        required: true
+        default: "42378407"
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  campaign-groups:
+    name: "Поиск рекламных групп только на чтение"
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      VK_ADS_ACCESS_TOKEN: ${{ secrets.VK_ADS_TOKEN_ITALIAN_SUNRISE }}
+      CAMPAIGN_ID: ${{ inputs.campaign_id || '42378407' }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: python -m pip install -r vk_ads_bridge/requirements.txt
+      - name: "Unit tests"
+        run: python -m unittest discover -s vk_ads_bridge/tests -v
+      - name: "Проверить токен и ID"
+        shell: bash
+        run: |
+          if [ -z "$VK_ADS_ACCESS_TOKEN" ]; then
+            echo "::error::Нет GitHub Secret VK_ADS_TOKEN_ITALIAN_SUNRISE"
+            exit 1
+          fi
+          if ! [[ "$CAMPAIGN_ID" =~ ^[0-9]+$ ]]; then
+            echo "::error::ID кампании должен состоять только из цифр"
+            exit 1
+          fi
+      - name: "Найти группы конкретной кампании — GET-only"
+        run: python -m vk_ads_bridge.campaign_inspect --campaign-id "$CAMPAIGN_ID"
