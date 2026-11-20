@@ -1,4 +1,4 @@
-name: "VK Ads — проверить подключение"
+name: "ITALIAN SUNRISE — проверить VK Ads"
 on:
   workflow_dispatch:
 
@@ -11,9 +11,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     env:
-      VK_ADS_ACCESS_TOKEN: ${{ secrets.VK_ADS_ACCESS_TOKEN }}
-      VK_ADS_CLIENT_ID: ${{ secrets.VK_ADS_CLIENT_ID }}
-      VK_ADS_CLIENT_SECRET: ${{ secrets.VK_ADS_CLIENT_SECRET }}
+      VK_ADS_ACCESS_TOKEN: ${{ secrets.VK_ADS_TOKEN_ITALIAN_SUNRISE }}
     steps:
       - name: "Убедиться, что выбрана основная ветка"
         shell: bash
