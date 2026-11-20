@@ -93,7 +93,7 @@ class VKAdsUploadTests(unittest.TestCase):
             result = do_upload(self.spec_path, 12345, receipts)
             self.assertTrue(result["complete"])
             self.assertEqual(result["ads"][0]["status"], "blocked")
-            data = service.add_banner.call_args.kwargs["banner"]
+            data = service.add_banner.call_args.args[1]
             self.assertEqual(data["status"], "blocked")
             self.assertEqual(data["urls"]["primary"]["id"], 9900)
             self.assertEqual(data["content"]["image_1080x607"]["id"], 8800)
