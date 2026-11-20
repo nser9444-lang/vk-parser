@@ -2,7 +2,9 @@ name: "ITALIAN SUNRISE — добавить три фото в объявлен�
 on:
   push:
     branches: [main]
-    paths: [".github/workflows/italian-fix-carousel-8764.yml"]
+    paths:
+      - ".github/workflows/italian-fix-carousel-8764.yml"
+      - "vk_ads_bridge/cli.py"
 
 permissions:
   contents: read
