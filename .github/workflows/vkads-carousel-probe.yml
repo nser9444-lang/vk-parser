@@ -2,7 +2,9 @@ name: "ITALIAN SUNRISE — проверить API карусели из 3 фот
 on:
   push:
     branches: [main]
-    paths: [".github/workflows/vkads-carousel-probe.yml"]
+    paths:
+      - ".github/workflows/vkads-carousel-probe.yml"
+      - "vk_ads_bridge/probe_carousel.py"
 
 permissions:
   contents: read
