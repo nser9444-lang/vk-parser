@@ -19,7 +19,7 @@ class OneAdPerGroupTests(unittest.TestCase):
         self.root = Path(self.temp.name)
         (self.root / "assets").mkdir()
         Image.new("RGB", (256, 256), "#ffffff").save(self.root / "assets" / "icon.jpg")
-        Image.new("RGB", (1080, 607), "#ffffff").save(self.root / "assets" / "landscape.jpg")
+        Image.new("RGB", (600, 600), "#ffffff").save(self.root / "assets" / "square.jpg")
         self.spec = self.root / "job.json"
         self.data = {
             "campaign_id": CAMPAIGN_ID,
@@ -30,7 +30,7 @@ class OneAdPerGroupTests(unittest.TestCase):
                 "name": "Тест №1 — сообщения",
                 "content": {
                     "icon_256x256": "assets/icon.jpg",
-                    "image_1080x607": "assets/landscape.jpg"
+                    "image_600x600": "assets/square.jpg"
                 },
                 "textblocks": {
                     "text_2000": {"text": "Реальный текст о товаре после проверки."},
@@ -113,6 +113,9 @@ class OneAdPerGroupTests(unittest.TestCase):
             if method == "GET" and path == "/api/v2/ad_groups.json":
                 return {"items": [{"id": 169040836, "ad_plan_id": CAMPAIGN_ID,
                                    "name": "Прежняя группа"}]}
+            if method == "GET" and path == "/api/v2/banners.json":
+                return {"items": [{"id": 253378451,
+                       "textblocks": {"about_company_115": {"text": "Проверенная юридическая информация"}}}]}
             if method == "POST" and path == "/api/v2/ad_groups.json":
                 payload = kwargs["json_body"]
                 self.assertEqual(payload["status"], "blocked")
