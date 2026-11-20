@@ -23,7 +23,9 @@ from .cli import (
 
 CAMPAIGN_ID = 42378407
 PACKAGE_MESSAGES = 3127
-EXPECTED_ASSETS = {"icon_256x256": (256, 256), "image_600x600": (600, 600)}
+BASE_ASSETS = {"icon_256x256": (256, 256), "image_600x600": (600, 600)}
+SLIDE_ASSETS = {f"image_600x600_slide_{i}": (600, 600) for i in range(1, 7)}
+EXPECTED_ASSETS = {**BASE_ASSETS, **SLIDE_ASSETS}
 GROUP_FIELDS = (
     "id,name,status,ad_plan_id,package_id,targetings,"
     "age_restrictions,autobidding_mode,budget_limit,budget_limit_day,"
@@ -71,11 +73,19 @@ def load_spec(path: Path):
             "В JSON присутствуют неразрешённые текстовые поля")
     require("ads" not in spec, "Нужен один объект ad, а не список ads")
     content = ad.get("content")
-    require(isinstance(content, dict) and set(content) == set(EXPECTED_ASSETS),
-            "Нужны ровно icon_256x256 и image_1080x607")
+    require(isinstance(content, dict), "ad.content: ожидается словарь файлов")
+    require(set(BASE_ASSETS).issubset(content), "Нет обязательной иконки и основного фото")
+    slide_keys = [k for k in content if k in SLIDE_ASSETS]
+    n = len(slide_keys)
+    require(3 <= n <= 6,
+            "Для одного объявления нужны 3–6 отдельных фото карусели")
+    required = set(BASE_ASSETS) | {f"image_600x600_slide_{i}" for i in range(1, n+1)}
+    require(set(content) == required,
+            "Названия слайдов должны идти по порядку от 1 до 3–6 без лишних полей")
     assets = {}
     digest = hashlib.sha256(raw)
-    for key, expected_size in EXPECTED_ASSETS.items():
+    for key in content:
+        expected_size = EXPECTED_ASSETS[key]
         file_path = path_inside(path.parent, content[key])
         with Image.open(file_path) as image:
             require(image.format in ("PNG", "JPEG"), "Допустимы только PNG/JPEG")
@@ -85,6 +95,10 @@ def load_spec(path: Path):
             image.verify()
         digest.update(file_path.read_bytes())
         assets[key] = file_path
+    slide_checksums = [hashlib.sha256(assets[k].read_bytes()).hexdigest()
+                       for k in slide_keys]
+    require(len(set(slide_checksums)) == n,
+            "Фотографии слайдов должны различаться — повтор одного фото запрещён")
     return spec, assets, digest.hexdigest()[:20]
 
 
@@ -134,7 +148,7 @@ def execute(path: Path, *, apply: bool, confirm_campaign_id: int | None,
     if not apply:
         return {"validated": True, "mode": "dry_run", "campaign_id": CAMPAIGN_ID,
                 "template_group_id": spec["template_group_id"],
-                "group_name": spec["group_name"],
+                "group_name": spec["group_name"], "photo_slides": len([k for k in assets if k in SLIDE_ASSETS]),
                 "ad_count": 1, "status_on_create": "blocked",
                 "asset_sizes": {k: list(EXPECTED_ASSETS[k]) for k in assets},
                 "fingerprint": fingerprint}
@@ -213,8 +227,19 @@ def execute(path: Path, *, apply: bool, confirm_campaign_id: int | None,
         state = api.banner(banner_id)
     require(state.get("status") == "blocked",
             "НЕ ПОДТВЕРЖДЕНА ОСТАНОВКА ОБЪЯВЛЕНИЯ! Проверьте кабинет.")
+    # Read back all distinct carousel slide media IDs before reporting success.
+    saved = api.request("GET", f"/api/v2/banners/{banner_id}.json",
+                        params={"fields": "id,status,content"})
+    saved_content = saved.get("content") or {}
+    slide_keys = [k for k in content_ids if k in SLIDE_ASSETS]
+    require(saved.get("status") == "blocked", "Объявление перестало быть остановленным")
+    require(all(isinstance(saved_content.get(k), dict)
+                and saved_content[k].get("id") == content_ids[k]["id"]
+                for k in slide_keys),
+            "VK Ads не подтвердил сохранение всех отдельных фотографий карусели")
     summary.update({"completed": True, "group_status": "blocked",
-                    "banner_status": "blocked", "banner_ids": [banner_id]})
+                    "banner_status": "blocked", "banner_ids": [banner_id],
+                    "carousel_slides_saved": len(slide_keys)})
     receipt.write_text(json.dumps(summary, ensure_ascii=False, indent=2), encoding="utf-8")
     return summary
 
