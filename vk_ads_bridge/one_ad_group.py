@@ -23,7 +23,7 @@ from .cli import (
 
 CAMPAIGN_ID = 42378407
 PACKAGE_MESSAGES = 3127
-EXPECTED_ASSETS = {"icon_256x256": (256, 256), "image_1080x607": (1080, 607)}
+EXPECTED_ASSETS = {"icon_256x256": (256, 256), "image_600x600": (600, 600)}
 GROUP_FIELDS = (
     "id,name,status,ad_plan_id,package_id,targetings,"
     "age_restrictions,autobidding_mode,budget_limit,budget_limit_day,"
@@ -156,6 +156,25 @@ def execute(path: Path, *, apply: bool, confirm_campaign_id: int | None,
             "Исходная группа не относится к цели сообщений")
     require(not find_duplicate_group(api, spec["group_name"]),
             "Группа с таким именем уже существует: запись отменена")
+    # Reuse legal advertiser disclosures already present in this exact campaign,
+    # instead of inventing a legal name or asking for secrets in a public job.
+    current = api.request(
+        "GET", "/api/v2/banners.json",
+        params={"_campaign_id": str(spec["template_group_id"]),
+                "fields": "id,textblocks", "limit": 20},
+    )
+    current_ads = current.get("items", [])
+    require(isinstance(current_ads, list), "Список исходных объявлений недоступен")
+    legal_text = None
+    for existing in current_ads:
+        blocks = existing.get("textblocks") or {}
+        item = blocks.get("about_company_115") or {}
+        text = item.get("text") if isinstance(item, dict) else None
+        if isinstance(text, str) and text.strip() and len(text.strip()) <= 115:
+            legal_text = text.strip()
+            break
+    require(legal_text is not None, "Не удалось подтвердить сведения рекламодателя из действующего объявления")
+    spec["ad"]["textblocks"]["about_company_115"] = {"text": legal_text}
     url_id = api.register_url(spec["landing_url"])
     content_ids = {key: {"id": api.upload({"path": p,
                        "width": EXPECTED_ASSETS[key][0],
