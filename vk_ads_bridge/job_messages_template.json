@@ -8,9 +8,9 @@
     "content": {
       "icon_256x256": "assets/palto-icon-256.png",
       "image_600x600": "assets/palto-600x600.png",
-      "image_600x600_slide_1": "assets/palto-photo-1-600x600.png",
-      "image_600x600_slide_2": "assets/palto-photo-2-600x600.png",
-      "image_600x600_slide_3": "assets/palto-photo-3-600x600.png"
+      "image_4_5": "assets/palto-main-4-5-1080x1350.png",
+      "image_1080x607": "assets/palto-main-16-9-1080x607.png",
+      "image_607x1080": "assets/palto-main-9-16-607x1080.png"
     },
     "textblocks": {
       "title_40_vkads": {
