@@ -10,7 +10,7 @@
 </head>
 <body><main>
 <h1>Парсер публичных постов ВК</h1>
-<p style="margin:9px 0 13px"><a href="./rolls.html" style="display:inline-block;padding:10px 14px;border-radius:9px;background:#e9f9ec;color:#217643;font-weight:700;text-decoration:none;margin-right:8px">🍣 Планировщик роллов →</a> <a href="./publisher.html" style="display:inline-block;padding:10px 14px;border-radius:9px;background:#e5f4ff;color:#1160a7;font-weight:700;text-decoration:none">✍ Автопубликация историй →</a></p>
+<p style="margin:9px 0 13px"><a id="rollsLink" href="./rolls.html" target="_self" style="display:inline-block;padding:10px 14px;border-radius:9px;background:#e9f9ec;color:#217643;font-weight:700;text-decoration:none;margin-right:8px">🍣 Планировщик роллов →</a> <a href="./publisher.html" style="display:inline-block;padding:10px 14px;border-radius:9px;background:#e5f4ff;color:#1160a7;font-weight:700;text-decoration:none">✍ Автопубликация историй →</a></p>
 <div class="sub">Версия 1.8.1 · приложение 54892559 · сбор через VK Bridge · выгрузка CSV или отправка результатов в закрытый GitHub</div>
 <section class="panel"><h2>1. Источники</h2>
 <label for="sources">Ссылки на публичные страницы и сообщества, по одной на строку</label>
@@ -335,4 +335,17 @@ if(typeof vkBridge!=='undefined')vkBridge.send('VKWebAppInit').catch(e=>{status.
 <script src="./ozon-ref-v16.js"></script>
 <script src="./author-search-v18.js?v=1.8"></script>
 <script src="./story-hunter-v18.js?v=1.8.1"></script>
+<script>
+// Keep signed VK Mini Apps launch query parameters when navigating to the planner.
+// The previous relative link discarded location.search, breaking VK Bridge auth.
+(function(){
+  const link=document.getElementById('rollsLink');
+  if(!link)return;
+  const target=new URL('./rolls.html',window.location.href);
+  target.search=window.location.search;
+  target.hash=window.location.hash;
+  link.href=target.href;
+  link.target='_self';
+})();
+</script>
 </body></html>
