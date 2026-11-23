@@ -12,7 +12,7 @@ header{padding:13px 2px 4px}.eyebrow{font-size:12px;font-weight:800;letter-spaci
 .sub,.hint{color:#62758a;font-size:13px;line-height:1.65}.panel{background:white;border:1px solid #e0e7ef;border-radius:17px;padding:21px;margin:17px 0;box-shadow:0 3px 14px #23364d09}
 .grid{display:grid;grid-template-columns:1fr 1fr;gap:15px}.grid3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:15px}
 label{font-weight:700;font-size:13px;display:block;margin:0 0 7px}
-input{width:100%;background:white;border:1px solid #c8d4e2;padding:12px;border-radius:9px;font:inherit;color:#22384c}
+input,select{width:100%;background:white;border:1px solid #c8d4e2;padding:12px;border-radius:9px;font:inherit;color:#22384c}
 button,.button{display:inline-block;font:inherit;font-weight:700;border:0;border-radius:10px;background:#1673e6;color:white;padding:12px 17px;text-decoration:none;cursor:pointer}
 button.secondary{color:#115c9c;background:#eaf3ff}.button:focus,button:focus{outline:3px solid #9cccff}
 button:disabled,.button.disabled{opacity:.5;pointer-events:none}
@@ -141,8 +141,9 @@ function photoSig(post){
 }
 function availableForTest(post){
  return post && Number.isSafeInteger(Number(post.id)) && Number(post.id)>0
-   && Array.isArray(post.attachments)
-   && post.attachments.every(x=>x.type==='photo'
+   && (post.attachments===undefined || Array.isArray(post.attachments))
+   && (!!(post.text||'').trim() || !!(post.attachments||[]).length)
+   && (post.attachments||[]).every(x=>x.type==='photo'
      && x.photo && Number.isSafeInteger(Number(x.photo.id))
      && Number.isSafeInteger(Number(x.photo.owner_id)));
 }
@@ -289,10 +290,10 @@ $('testReview').addEventListener('click',()=>{
   status('testPreview','Сообщество: club'+groupId+
     '\nИсходная запись №'+p.id+
     '\nВремя: '+when.replace('T',' ')+' МСК'+
-    '\nФотографий: '+p.attachments.length+
+    '\nФотографий: '+(p.attachments||[]).length+
     '\nТекст без ИИ-корректуры:\n'+(p.text||'(без текста)'));
   const gallery=$('testPhotos');
-  for(const attachment of p.attachments){
+  for(const attachment of (p.attachments||[])){
    const sizes=attachment.photo?.sizes||[];
    const entry=sizes.filter(x=>x&&typeof x.url==='string'&&/^https:\/\//.test(x.url))
      .sort((a,b)=>Math.abs((a.width||0)-320)-Math.abs((b.width||0)-320))[0];
