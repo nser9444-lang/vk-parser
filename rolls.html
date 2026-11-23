@@ -81,31 +81,31 @@ a{color:#086ab8}code{font-size:12px;background:#f5f8fc;padding:2px 5px}
 </section>
 
 <section class="panel" id="singleTestPanel">
-<h2>4. Тестовый перенос одной предложенной записи</h2>
-<p>Прямая отправка из мини-приложения заблокирована ВКонтакте (ошибка 15). Для теста одной записи теперь используем <b>серверный обработчик GitHub</b> с отдельным пользовательским токеном администратора. Сначала сверяем исходный текст и фотографии, затем создаём приватную заявку. ИИ на этом этапе ничего не меняет.</p>
-<div class="info">Перед подтверждением тестовой заявки подключи пользовательский токен с правом <b>wall</b> для приложения с поддержкой <b>wall.post</b>. Сохраняй его только в <a href="https://github.com/nser9444-lang/vk-parser-data/settings/secrets/actions" target="_blank" rel="noopener noreferrer">GitHub Secrets</a> под именем <code>VK_ROLLS_OSKOL_USER_TOKEN</code> для Старого Оскола (или <code>VK_ROLLS_USER_TOKEN</code> для одного аккаунта-администратора нескольких сообществ). Ключ сообщества и токен текущего мини-приложения не гарантируют нужного доступа. Без подходящего токена сервер ничего не отправит.</div>
+<h2>4. Проверка исходной фотографии через ключ сообщества</h2>
+<p>Обычную отложенную запись через ключ сообщества мы уже проверили. Теперь проверим, примет ли ВКонтакте <b>первую фотографию выбранной предложенной записи</b> как вложение <b>НОВОЙ</b> отложенной публикации в <b>тестовом сообществе</b> <code>club213682439</code>. Исходную предложенную запись не меняем.</p>
+<div class="info">Ключ уже хранится в закрытом GitHub как <code>VK_PUBLISH_TOKEN</code>. Новый токен и OpenAI API для этого теста не нужны. Текст тестовой публикации будет служебным. Дата — <b>2 марта 2027 года, 15:00 МСК</b>; после проверки тестовую запись надо удалить вручную.</div>
 <div class="grid">
   <div>
-    <label for="testPost">Выбрать предложенную запись</label>
+    <label for="testPost">Предложенная запись с фотографией</label>
     <select id="testPost" disabled><option value="">Сначала загрузи предложенные новости</option></select>
   </div>
   <div>
-    <label for="testTime">Время публикации (по Москве)</label>
-    <input id="testTime" type="datetime-local" disabled>
+    <label for="testTime">Время тестовой публикации (МСК)</label>
+    <input id="testTime" type="datetime-local" value="2027-03-02T15:00" disabled>
   </div>
 </div>
-<p class="hint">В первом тесте разрешены предложенные записи с обычными фотографиями или без вложений. Другие типы вложений отдельно проверим позже. Время должно быть не раньше чем через час, с 10:00 до 20:00 МСК.</p>
-<div class="actions"><button id="testReview" disabled>Посмотреть запись перед переносом</button></div>
-<div id="testPreview" class="status">Тестовый перенос ещё не подготовлен.</div>
+<p class="hint">Выбирается одно фото, а не вся публикация: проверяем доступность оригинального вложения по его ID. Если ВК откажет, ничего повторно не отправляем.</p>
+<div class="actions"><button id="testReview" disabled>Посмотреть исходное фото</button></div>
+<div id="testPreview" class="status">Фото-тест пока не подготовлен.</div>
 <div id="testPhotos" style="display:flex;flex-wrap:wrap;gap:9px;margin-top:10px"></div>
 <label style="display:flex;align-items:flex-start;gap:8px;margin-top:14px">
-  <input id="testConsent" type="checkbox" disabled style="width:auto;margin:4px 0 0">
-  <span>Подтверждаю подготовку заявки на перенос только этой записи. Отправка станет возможной лишь после подтверждения заявки в GitHub и проверки доступа.</span>
+<input id="testConsent" type="checkbox" disabled style="width:auto;margin:4px 0 0">
+<span>Разрешаю создать одну новую отложенную тестовую запись с выбранным фото в сообществе <b>club213682439</b>. Оригинал останется в «Предложенных».</span>
 </label>
-<div class="actions"><button id="testSend" disabled style="background:#166f49">Подготовить серверный тест одной записи</button><a id="singleIssueLink" class="button" href="#" target="_blank" rel="noopener noreferrer" style="display:none">Подтвердить заявку в GitHub ↗</a></div>
-<div id="testStatus" class="status" role="status">Ни одна запись не отправлена. Для серверного теста нужен пользовательский токен в GitHub Secrets. Обычный токен сообщества для этого переноса не подтверждён.</div>
-<div class="actions"><button id="testCheck" class="secondary" type="button">Проверить состояние после ошибки (без публикации)</button></div>
-<p class="hint">Проверка только читает «Предложенные» и «Отложенные». Если предыдущий запрос был отправлен, не повторяй его до проверки в самом ВК. Последний ID теста сохраняется в браузере без токена и текста.</p>
+<div class="actions"><button id="testSend" disabled style="background:#166f49">Подготовить тест одной фотографии</button><a id="singleIssueLink" class="button" href="#" target="_blank" rel="noopener noreferrer" style="display:none">Подтвердить тест в GitHub ↗</a></div>
+<div id="testStatus" class="status" role="status">Никаких новых тестовых публикаций с фото ещё не создано.</div>
+<div class="actions"><button id="testCheck" class="secondary" type="button">Проверить отложенные после прошлой ошибки (без публикации)</button></div>
+<p class="hint">Это дополнительная проверка предыдущей неуспешной попытки из мини-приложения. Она только читает предложенные и отложенные записи.</p>
 </section>
 
 <section class="panel">
@@ -202,68 +202,59 @@ function resetTest(){
  $('testSend').disabled=true;
  status('testPreview','Нажми «Посмотреть запись перед переносом».');
 }
+
 function testChoices(){
- const good=suggests.filter(availableForTest);
- $('testPost').innerHTML='<option value="">Выбери предложенную запись</option>'+
-  good.map(p=>'<option value="'+Number(p.id)+'">№'+Number(p.id)+
-    ' · фото: '+(p.attachments||[]).length+' · '+esc((p.text||'(без текста)').replace(/\s+/g,' ').slice(0,75))+'</option>').join('');
- const old=readAttempt();
- if(old&&old.groupId===groupId)status('testStatus','Ранее была попытка прямого переноса из мини-приложения. Перед серверным тестом проверь результат старой попытки кнопкой ниже.');
- $('testPost').disabled=!good.length;
- $('testTime').disabled=!good.length;
- $('testReview').disabled=!good.length;
- if(good.length){
-  $('testPost').value=String(good[0].id);
-  $('testTime').value=pickTestSlot();
- }
+ const photoPosts=suggests.filter(p=>availableForTest(p) &&
+   (p.attachments||[]).some(x=>x.type==='photo'&&x.photo&&Number(x.photo.id)>0));
+ $('testPost').innerHTML='<option value="">Выбери запись с фотографией</option>'+
+   photoPosts.map(p=>'<option value="'+Number(p.id)+'">№'+Number(p.id)+
+     ' · фото: '+(p.attachments||[]).filter(x=>x.type==='photo').length+
+     ' · '+esc((p.text||'(без текста)').replace(/\s+/g,' ').slice(0,70))+'</option>').join('');
+ $('testPost').disabled=!photoPosts.length;
+ $('testTime').value='2027-03-02T15:00';
+ $('testTime').disabled=true;
+ $('testReview').disabled=!photoPosts.length;
+ if(photoPosts.length)$('testPost').value=String(photoPosts[0].id);
  resetTest();
- if(!good.length)status('testPreview','Нет предложенных записей с обычными фотографиями либо без вложений.');
- if(old&&old.groupId===groupId)status('testStatus','Ранее была попытка прямого переноса. Нажми «Проверить состояние после ошибки», чтобы убедиться, что запись не перенеслась. Серверный тест — отдельная процедура.');
+ if(!photoPosts.length)status('testPreview','Нет предложенных записей с фотографиями, которые можно проверить. Сначала загрузи сообщество с фото.');
 }
 async function prepareSingleServerIssue(){
  if(testBusy||!testReviewed||!token||!groupId||!$('testConsent').checked)return;
- if(String(testReviewed.postId)!==$('testPost').value||testReviewed.when!==$('testTime').value){
-  resetTest();status('testStatus','Выбранная запись или время изменились. Подтверди их снова.');return;
+ if(String(testReviewed.postId)!==$('testPost').value){
+  resetTest();status('testStatus','Выбранная запись изменилась. Посмотри её заново.');return;
  }
  testBusy=true;$('testSend').disabled=true;$('singleIssueLink').style.display='none';
  try{
-  const stamp=Date.parse(testReviewed.when+':00+03:00');
-  if(!Number.isFinite(stamp)||stamp<Date.now()+60*60*1000||
-     stamp>Date.now()+20*24*60*60*1000)
-   throw Error('Выбери время минимум через час и не позже 20 дней.');
-  status('testStatus','Проверяем исходную предложенную запись и доступность времени (только чтение)…');
-  const [sourcePosts,scheduled]=await Promise.all([loadWall('suggests'),loadWall('postponed')]);
+  status('testStatus','Проверяем, что исходная фотография не изменилась…');
+  const sourcePosts=await loadWall('suggests');
   const source=sourcePosts.find(p=>Number(p.id)===testReviewed.postId);
   const before=suggests.find(p=>Number(p.id)===testReviewed.postId);
-  if(!source||!before)throw Error('Предложенная запись исчезла или не найдена. Ничего не отправлено.');
+  if(!source||!before)throw Error('Предложенная запись больше недоступна.');
   if((source.text||'')!==(before.text||'')||
-     JSON.stringify(photoSig(source))!==JSON.stringify(photoSig(before)))
-   throw Error('Текст или фотографии изменились. Повтори предпросмотр. Ничего не отправлено.');
-  if(!availableForTest(source))throw Error('Неподдерживаемые вложения. В тесте разрешены обычные фотографии.');
-  if(scheduled.some(p=>p.date && Math.abs(Number(p.date)*1000-stamp)<15*60*1000))
-   throw Error('Выбранное время уже занято в отложенных. Ничего не отправлено.');
-  if(typeof crypto==='undefined'||!crypto.subtle)
-   throw Error('Браузер не поддерживает безопасную проверку неизменности исходной записи.');
-  const photos=(source.attachments||[]).map(a=>({owner_id:Number(a.photo.owner_id),id:Number(a.photo.id)}));
-  const original=JSON.stringify({text:source.text||'',photos});
-  const bytes=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(original));
-  const hash=Array.from(new Uint8Array(bytes)).map(x=>x.toString(16).padStart(2,'0')).join('');
-  const data={kind:'rolls-single-v1',group_id:groupId,source_id:Number(source.id),
-    publish_date:Math.floor(stamp/1000),sha256:hash};
-  const title='[ROLLS SINGLE] Сообщество club'+groupId+' · запись №'+source.id;
-  const body='Одна предложенная новость → одна отложенная. Сохраняем исходные текст и фотографии без изменений.\n'
-    +'До отправки сервер проверит, что запись и вложения не изменились, а время свободно.\n'
-    +'Если пользовательский токен администратора не настроен или ВК не разрешает перенос, действий в ВК не будет.\n\n'
-    +'~~~vk-rolls-single-json\n'+JSON.stringify(data)+'\n~~~';
-  const url='https://github.com/nser9444-lang/vk-parser-data/issues/new?title='
+      JSON.stringify(photoSig(source))!==JSON.stringify(photoSig(before)))
+    throw Error('Текст или фотографии изменились. Повтори предпросмотр.');
+  if(!availableForTest(source))throw Error('У записи неподдерживаемые вложения.');
+  const p=(source.attachments||[]).find(x=>x.type==='photo'&&x.photo);
+  if(!p)throw Error('У выбранной записи нет фотографии.');
+  if(Number(p.photo.id)!==testReviewed.photoId||
+     Number(p.photo.owner_id)!==testReviewed.photoOwnerId)
+    throw Error('Выбранное фото изменилось.');
+  const data={kind:'rolls-photo-test-v1',
+    source_group_id:groupId,source_post_id:Number(source.id),
+    photo_owner_id:Number(p.photo.owner_id),photo_id:Number(p.photo.id),
+    target_group_id:213682439};
+  const title='[ROLLS PHOTO TEST] Фото из club'+groupId+' · запись №'+source.id;
+  const body='Проверка ОДНОЙ оригинальной фотографии в новой отложенной записи тестовой группы club213682439.\n'
+   +'Время: 2 марта 2027 года, 15:00 МСК. Оригинальная предложенная запись не меняется.\n'
+   +'Без корректуры текста и без новых ключей. После проверки удалить тестовую запись.\n\n'
+   +'~~~vk-rolls-photo-json\n'+JSON.stringify(data)+'\n~~~';
+  $('singleIssueLink').href='https://github.com/nser9444-lang/vk-parser-data/issues/new?title='
     +encodeURIComponent(title)+'&body='+encodeURIComponent(body);
-  $('singleIssueLink').href=url;
   $('singleIssueLink').style.display='inline-block';
-  status('testStatus','Тестовая заявка подготовлена: запись №'+source.id+
-   ', '+testReviewed.when.replace('T',' ')+' МСК.\n'
-   +'Ни одной публикации пока не было. Нажми «Подтвердить заявку в GitHub», '
-   +'затем зелёную кнопку Create. GitHub проверит ключ и выполнит максимум ОДИН запрос переноса.');
- }catch(e){status('testStatus','Нельзя подготовить заявку: '+e.message);}
+  status('testStatus','Фото-тест подготовлен: photo'+data.photo_owner_id+'_'+data.photo_id+
+    '.\nНичего ещё не опубликовано. Нажми «Подтвердить тест в GitHub» и затем Create. '+
+    'Результат появится в комментариях заявки. Никаких повторов после ошибки.');
+ }catch(e){status('testStatus','Подготовка остановлена: '+e.message+' — записей ВК не меняли.');}
  finally{testBusy=false;$('testSend').disabled=!(testReviewed&&$('testConsent').checked);}
 }
 async function verifyLastAttempt(){
@@ -335,39 +326,29 @@ $('testReview').addEventListener('click',()=>{
  resetTest();
  try{
   const p=suggests.find(x=>Number(x.id)===Number($('testPost').value));
-  if(!availableForTest(p))throw Error('Выбери предложенную запись с обычными фотографиями.');
-  const when=$('testTime').value;
-  if(!/^\d{4}-\d\d-\d\dT\d\d:\d\d$/.test(when))throw Error('Выбери дату и время по Москве.');
-  const timestamp=Date.parse(when+':00+03:00');
-  const m=Number(when.slice(11,13))*60+Number(when.slice(14,16));
-  if(!Number.isFinite(timestamp)||timestamp<Date.now()+60*60*1000||
-     timestamp>Date.now()+22*24*60*60*1000||m<600||m>1200)
-   throw Error('Укажи время от 10:00 до 20:00 МСК в ближайшие 20 дней, минимум через час.');
-  const d=moscowParts(new Date(timestamp));
-  if(postponed.some(x=>x.date&&(()=>{const v=moscowParts(new Date(x.date*1000));return v.day===d.day&&Math.abs(v.minute-d.minute)<15;})()))
-   throw Error('На это время уже есть отложенная запись (интервал 15 минут).');
-  testReviewed={postId:Number(p.id),when};
-  status('testPreview','Сообщество: club'+groupId+
-    '\nИсходная запись №'+p.id+
-    '\nВремя: '+when.replace('T',' ')+' МСК'+
-    '\nФотографий: '+(p.attachments||[]).length+
-    '\nТекст без ИИ-корректуры:\n'+(p.text||'(без текста)'));
+  if(!availableForTest(p))throw Error('Выбери предложенную запись с фотографией.');
+  const original=(p.attachments||[]).find(x=>x.type==='photo'&&x.photo);
+  if(!original)throw Error('У этой записи нет фотографии.');
+  testReviewed={postId:Number(p.id),photoOwnerId:Number(original.photo.owner_id),
+    photoId:Number(original.photo.id)};
+  status('testPreview','Исходная предложенная запись №'+p.id+' из club'+groupId+
+    '\nПроверяем только первое фото: photo'+testReviewed.photoOwnerId+'_'+testReviewed.photoId+
+    '\nНовый тестовый пост: club213682439, 2 марта 2027 года в 15:00 МСК.'+
+    '\nИсходный текст (НЕ переносится в тест):\n'+(p.text||'(без текста)'));
   const gallery=$('testPhotos');
-  for(const attachment of (p.attachments||[])){
-   const sizes=attachment.photo?.sizes||[];
-   const entry=sizes.filter(x=>x&&typeof x.url==='string'&&/^https:\/\//.test(x.url))
-     .sort((a,b)=>Math.abs((a.width||0)-320)-Math.abs((b.width||0)-320))[0];
-   if(!entry)continue;
-   const link=document.createElement('a');
-   link.href=entry.url;link.target='_blank';link.rel='noopener noreferrer';
-   const image=document.createElement('img');
-   image.src=entry.url;image.alt='Исходная фотография предложенной записи';
-   image.loading='lazy';image.style.maxWidth='145px';
-   image.style.maxHeight='120px';image.style.borderRadius='8px';
-   link.appendChild(image);gallery.appendChild(link);
+  const sizes=original.photo.sizes||[];
+  const entry=sizes.filter(x=>x&&typeof x.url==='string'&&/^https:\/\//.test(x.url))
+    .sort((a,b)=>Math.abs((a.width||0)-350)-Math.abs((b.width||0)-350))[0];
+  if(entry){
+   const link=document.createElement('a');link.href=entry.url;
+   link.target='_blank';link.rel='noopener noreferrer';
+   const image=document.createElement('img');image.src=entry.url;
+   image.alt='Исходное фото из предложенной записи';
+   image.loading='lazy';image.style.maxWidth='200px';image.style.maxHeight='160px';
+   image.style.borderRadius='8px';link.appendChild(image);gallery.appendChild(link);
   }
   $('testConsent').disabled=false;
- }catch(e){status('testPreview','Проверка не пройдена: '+e.message);}
+ }catch(e){status('testPreview','Ошибка предпросмотра: '+e.message);}
 });
 $('testSend').addEventListener('click',prepareSingleServerIssue);
 
