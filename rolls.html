@@ -113,7 +113,7 @@ a{color:#086ab8}code{font-size:12px;background:#f5f8fc;padding:2px 5px}
 <h2>5. Подготовить массовый перенос (пока выключен)</h2>
 <p>После подтверждения заявки в закрытом GitHub обработчик заново получит все предложенные записи, исправит ошибки, добавит до двух уместных эмодзи и перенесёт записи в отложенные. Оригинальные вложения сохраняются посредством исходного идентификатора предложенной записи.</p>
 <div class="warning"><b>Защита от случайной публикации.</b> На этапе установки система работает в тестовом режиме и ничего не меняет в ВК. Реальный перенос включается отдельно после проверки прав доступа и пробного запуска. Если ИИ изменит цены, числа или ссылки, запись не отправится автоматически.</div>
-<div class="actions"><button id="prepare" disabled>Подготовить все записи</button><a id="issueLink" class="button" target="_blank" rel="noopener noreferrer" style="display:none">Открыть заявку в GitHub ↗</a></div>
+<div class="actions"><button id="prepare" disabled>Массовый перенос пока недоступен — проверяем фотографии</button><a id="issueLink" class="button" target="_blank" rel="noopener noreferrer" style="display:none">Открыть заявку в GitHub ↗</a></div>
 <div id="submitStatus" class="status">Пока ничего не отправлено.</div>
 <p class="hint">GitHub попросит нажать <b>Submit new issue</b>. Это подтверждает создание заявки; фактический перенос возможен только после включения серверного обработчика. Не отправляй одну и ту же заявку дважды.</p>
 </section>
@@ -505,7 +505,8 @@ async function uploadOnePhotoToVk(){
   // From this point the VK API may save the photo even if the network call times out.
   // Persist a no-retry marker before invoking the final save method.
   status('photoSaveStatus','Фото загружено на сервер. Сейчас сохраняем его в альбом стены тестовой группы (не публикуем пост)…');
-  try{localStorage.setItem(attemptKey,'ожидает проверки: фото могло сохраниться');}catch(e){}
+  try{localStorage.setItem(attemptKey,'ожидает проверки: фото могло сохраниться');}
+  catch(e){throw Error('Браузер запретил сохранить защиту от повторного вызова photos.saveWallPhoto. Повторять загрузку опасно, сохранение не выполнялось.');}
   saveRequested=true;
   const savedResponse=await bridgeSend('VKWebAppCallAPIMethod',{
     method:'photos.saveWallPhoto',
@@ -523,12 +524,12 @@ async function uploadOnePhotoToVk(){
    throw Error('Фотография сохранилась не под тестовой группой. ID: '+savedOwner+'_'+savedId);
   try{localStorage.setItem(attemptKey,'сохранено: photo'+savedOwner+'_'+savedId);}catch(e){}
   status('photoSaveStatus','✅ ВК подтвердил photos.saveWallPhoto. Сохранённая фотография: photo'+savedOwner+'_'+savedId+
-    '\\nАльбом стены: тестовая группа club'+PHOTO_SAVE_TARGET_ID+
-    '\\nИсходная предложенная запись №'+copy.postId+' осталась без изменений.'+
-    '\\nНикаких постов и отложенных записей НЕ создавали. Открой фотографии тестового сообщества и сравни изображение с исходником.');
+    '\nАльбом стены: тестовая группа club'+PHOTO_SAVE_TARGET_ID+
+    '\nИсходная предложенная запись №'+copy.postId+' осталась без изменений.'+
+    '\nНикаких постов и отложенных записей НЕ создавали. Открой фотографии тестового сообщества и сравни изображение с исходником.');
  }catch(e){
   status('photoSaveStatus','Ошибка: '+jsonApiError(e)+
-   '\\nНикакого wall.post не было.'+
+   '\nНикакого wall.post не было.'+
    (saveRequested?' photos.saveWallPhoto уже вызывался: сохранение могло произойти. '+
     'Проверь альбом фотографий тестовой группы перед повторением.'
    :' Сохранение photos.saveWallPhoto не выполнялось.'));
@@ -722,7 +723,7 @@ function calculate(){
   plan=result.sort((a,b)=>a.at.localeCompare(b.at));
   if(new Date(plan[0].at).getTime()<=Date.now()+20*60*1000)throw Error('Начало слишком близко. Выбери следующий день.');
   status('planStatus','План готов: '+plan.length+' из '+suggests.length+' предложенных новостей.\nПервые публикации: '+plan.slice(0,4).map(x=>x.atLabel).join(' · ')+'\nПоследняя: '+plan[plan.length-1].atLabel);
-  $('prepare').disabled=false;
+  $('prepare').disabled=true; // Bulk transfer not ready until photo preservation is confirmed.
  }catch(err){status('planStatus','Ошибка планирования: '+err.message);plan=[];}
  render();
 }
