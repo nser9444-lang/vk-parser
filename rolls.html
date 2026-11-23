@@ -475,7 +475,7 @@ async function uploadOnePhotoToVk(){
      break;
     }catch(e){
      const m=String(e?.message||e);
-     errors.push(m.includes('HTTP ') ? m.match(/HTTP \\d+/)?.[0]||'HTTP ошибка' : 'сетевая ошибка/CORS');
+     errors.push(m.includes('HTTP ') ? m.match(/HTTP \d+/)?.[0]||'HTTP ошибка' : 'сетевая ошибка/CORS');
     }
    }
    if(!blob)throw Error('Все '+visited.size+' ссылок на размеры фотографии оказались недоступны ('+
