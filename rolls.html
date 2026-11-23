@@ -81,7 +81,7 @@ a{color:#086ab8}code{font-size:12px;background:#f5f8fc;padding:2px 5px}
 </section>
 
 <section class="panel" id="singleTestPanel">
-<h2>4. Тест сохранения одной фотографии ВК</h2>
+<h2>4. Загрузка фотографий — проверка ограничений</h2>
 <p><b>Результат теста №141: ВК создал отложенную запись №13 без фотографии.</b> Отправка фото по ID через ключ сообщества не прошла проверку. Новые тестовые и массовые публикации с фотографиями заблокированы до выяснения способа загрузки изображения.</p>
 <div class="warning"><b>Удали тестовые отложенные записи:</b> №12 (1 марта 2027) и №13 (2 марта 2027) в <code>club213682439</code>. Фото в №13 отсутствует. Никаких новых записей в ходе следующей проверки не создаём.</div>
 <div class="actions"><button id="photoPermissionCheck" class="secondary">Проверить разрешение «Фото» (без загрузки)</button></div>
@@ -93,7 +93,7 @@ a{color:#086ab8}code{font-size:12px;background:#f5f8fc;padding:2px 5px}
   </div>
   <div><label>Место сохранения фотографии</label><input value="Тестовая группа club213682439" disabled><input id="testTime" type="hidden" value="2027-03-02T15:00"></div>
 </div>
-<p class="hint">Сначала загрузим исходные байты фотографии без сжатия и изменения изображения. VK сохранит фото в альбом стены тестовой группы, где оно может быть видно. Но сам пост на стене создан не будет.</p>
+<p class="hint">Проверка выявила ограничение браузера: прямой запрос к VK upload_url блокируется (возможен CORS). Для дальнейшего сохранения нужен серверный механизм загрузки или отдельный тест прикрепления оригинального фото внутри его собственного сообщества.</p>
 <div class="actions"><button id="testReview" disabled>Посмотреть исходное фото</button></div>
 <div id="testPreview" class="status">Фото-тест пока не подготовлен.</div>
 <div id="testPhotos" style="display:flex;flex-wrap:wrap;gap:9px;margin-top:10px"></div>
@@ -101,9 +101,9 @@ a{color:#086ab8}code{font-size:12px;background:#f5f8fc;padding:2px 5px}
 <input id="testConsent" type="checkbox" disabled style="width:auto;margin:4px 0 0">
 <span>Разрешаю загрузить и сохранить <b>одну</b> исходную фотографию в альбоме стены тестовой группы <b>club213682439</b>. Пост не создавать. Исходную предложенную запись не менять.</span>
 </label>
-<div class="actions"><button id="photoSaveBtn" disabled>Сохранить ОДНО фото в тестовой группе (без поста)</button><button id="testSend" disabled style="display:none"></button><a id="singleIssueLink" href="#" style="display:none"></a></div>
-<div class="hint">Если браузер не может скачать исходное фото из ВК, открой его в предпросмотре, сохрани исходный файл на компьютер и выбери здесь без редактирования: <input id="photoLocalFile" type="file" accept="image/jpeg,image/png,image/webp" disabled style="margin-top:5px"></div>
-<div id="photoSaveStatus" class="status" role="status">Фото пока не загружалось и не сохранялось.</div>
+<div class="actions"><button id="photoSaveBtn" disabled>Прямая загрузка из браузера приостановлена</button><button id="testSend" disabled style="display:none"></button><a id="singleIssueLink" href="#" style="display:none"></a></div>
+<div class="hint">Выбирать файл вручную сейчас не нужно: это не решит запрет отправки на сервер ВК. Новые тестовые публикации отключены.</div><input id="photoLocalFile" type="file" accept="image/jpeg,image/png,image/webp" disabled hidden>
+<div id="photoSaveStatus" class="status" role="status">ВК подтвердил выдачу адреса загрузки, но отправка файла из браузера завершилась TypeError (возможен CORS). Никаких фотографий и публикаций не создали. Этот способ пока отключён.</div>
 <div id="testStatus" class="status" role="status">Публикации с фото по-прежнему заблокированы. Этот тест сохраняет только фотографию, без поста.</div>
 <div class="actions"><button id="testCheck" class="secondary" type="button">Проверить отложенные после прошлой ошибки (без публикации)</button></div>
 <p class="hint">Это дополнительная проверка предыдущей неуспешной попытки из мини-приложения. Она только читает предложенные и отложенные записи.</p>
@@ -328,7 +328,7 @@ async function verifyLastAttempt(){
 $('testCheck').addEventListener('click',verifyLastAttempt);
 $('testPost').addEventListener('change',resetTest);
 $('testTime').addEventListener('change',resetTest);
-$('testConsent').addEventListener('change',()=>{$('testSend').disabled=true;$('photoSaveBtn').disabled=!(testReviewed&&$('testConsent').checked);});
+$('testConsent').addEventListener('change',()=>{$('testSend').disabled=true;$('photoSaveBtn').disabled=true;});
 $('testReview').addEventListener('click',()=>{
  resetTest();
  try{
@@ -355,7 +355,7 @@ $('testReview').addEventListener('click',()=>{
    image.style.borderRadius='8px';link.appendChild(image);gallery.appendChild(link);
   }
   $('testConsent').disabled=false;
-  $('photoLocalFile').disabled=false;
+  $('photoLocalFile').disabled=true;
  }catch(e){status('testPreview','Ошибка предпросмотра: '+e.message);}
 });
 
@@ -424,6 +424,8 @@ async function getImageBytes(imageUrl){
  return blob;
 }
 async function uploadOnePhotoToVk(){
+ status('photoSaveStatus','Прямая передача фотографий из браузера отключена после сетевой ошибки загрузки на сервер ВК. Записей не создавали.');
+ return;
  if(photoSaveBusy)return;
  const button=$('photoSaveBtn');
  if(!groupId||!token||!testReviewed||!$('testConsent').checked){
