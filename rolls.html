@@ -33,7 +33,7 @@ a{color:#086ab8}code{font-size:12px;background:#f5f8fc;padding:2px 5px}
 <div class="eyebrow">Текста роллы · ВКонтакте</div>
 <h1>Планировщик предложенных новостей</h1>
 <p class="sub">Все предложенные записи → проверка орфографии и пунктуации с ИИ → уместные эмодзи → отложенные публикации ВК на 20 дней. Фотографии и вложения не заменяем.</p>
-<p><a href="./index.html">← К главной странице приложения</a> · <a href="https://vk.ru/app54892559" target="_blank" rel="noopener noreferrer">Открыть приложение ВК</a></p>
+<p><a id="backToParser" href="./index.html" target="_self">← К главной странице приложения</a> · <a href="https://vk.ru/app54892559" target="_blank" rel="noopener noreferrer">Открыть приложение ВК</a></p>
 </header>
 
 <section class="panel">
@@ -123,6 +123,14 @@ a{color:#086ab8}code{font-size:12px;background:#f5f8fc;padding:2px 5px}
 'use strict';
 const APP_ID=54892559, VERSION='5.199';
 const $=id=>document.getElementById(id);
+(function keepVkLaunchOnBackLink(){
+ const back=$('backToParser');
+ if(!back)return;
+ const dest=new URL('./index.html',window.location.href);
+ dest.search=window.location.search;
+ dest.hash=window.location.hash;
+ back.href=dest.href;
+})();
 let token=null,groupId=null,groupName='',suggests=[],postponed=[],plan=[],loading=false;
 function moscowDate(now){
   return new Intl.DateTimeFormat('sv-SE',{timeZone:'Europe/Moscow',year:'numeric',month:'2-digit',day:'2-digit'}).format(now);
