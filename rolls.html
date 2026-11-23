@@ -415,12 +415,14 @@ async function bridgeSend(method,params,ms=15000){
  return sleepTimeout(vkBridge.send(method,params),ms,method);
 }
 async function acquireToken(){
- status('loadStatus','Подключаемся к ВКонтакте: проверяем приложение…');
- await bridgeSend('VKWebAppInit',undefined,8000);
- status('loadStatus','Ожидаем разрешение wall от ВКонтакте…');
+ // Same handshake as the working parser index.html. VKWebAppInit can time out
+ // on a secondary page; it is not needed to request the already-proven wall
+ // permission and must not block loading the proposed posts.
+ status('loadStatus','Запрашиваем разрешение wall у ВКонтакте…');
  const result=await bridgeSend('VKWebAppGetAuthToken',{app_id:APP_ID,scope:'wall'},25000);
- if(!result||!result.access_token)throw Error('ВК не предоставил доступ к стене.');
+ if(!result||!result.access_token)throw Error('ВК не предоставил доступ к стене. Открой планировщик из основного приложения ВК.');
  token=result.access_token;
+ status('loadStatus','Доступ к стене получен. Получаем записи…');
 }
 checkEnvironment();
 window.addEventListener('load',checkEnvironment);
