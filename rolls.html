@@ -289,8 +289,28 @@ async function confirmTest(){
 }
 async function verifyLastAttempt(){
  const p=readAttempt();
+ if(!token||!groupId){
+  status('testStatus','Сначала выбери сообщество и нажми «Загрузить все предложенные». Проверка будет только чтением.');
+  return;
+ }
  if(!p){
-  status('testStatus','Сохранённых попыток на этом устройстве нет. Для прежней попытки проверь отложенные записи непосредственно во ВКонтакте; повторно отправлять без проверки нельзя.');
+  const button=$('testCheck');button.disabled=true;
+  try{
+   status('testStatus','Загружаем отложенные и предложенные без публикации…');
+   const [suggested,scheduled]=await Promise.all([loadWall('suggests'),loadWall('postponed')]);
+   const latest=scheduled.slice().sort((a,b)=>Number(a.date||0)-Number(b.date||0)).slice(0,12);
+   const lines=['Запись о прошлой попытке не сохранилась (тест был выполнен в старой версии).',
+    'Предложенных сейчас: '+suggested.length+'. Отложенных сейчас: '+scheduled.length+'.',
+    'Ближайшие отложенные записи:'];
+   latest.forEach(x=>lines.push('• №'+x.id+' · '+new Date(Number(x.date)*1000).toLocaleString('ru-RU',{timeZone:'Europe/Moscow'})+' МСК · https://vk.ru/wall-'+groupId+'_'+x.id));
+   if(!latest.length)lines.push('Нет записей в отложенных.');
+   lines.push('Это только просмотр списка. Проверь нужный пост вручную по тексту и фотографиям. Ничего не отправлено.');
+   status('testStatus',lines.join('\\n'));
+   postponed=scheduled;suggests=suggested;
+   render();calculate();testChoices();
+   status('testStatus',lines.join('\\n'));
+  }catch(e){status('testStatus','Ошибка чтения: '+e.message+'. Записей ВК не изменяли.');}
+  finally{button.disabled=false;}
   return;
  }
  if(!token||!groupId){
