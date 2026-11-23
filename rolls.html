@@ -434,11 +434,13 @@ async function api(method,params,canRetry=true){
    if(r&&r.error)throw r.error;
    return r.response??r;
   }catch(e){
-   const code=Number(e?.error_code||e?.error?.error_code||0);
+   const code=Number(e?.error_code||e?.error?.error_code||e?.error_data?.error_code||e?.error_data?.error?.error_code||0);
    if(canRetry&&(code===6||code===9||code===10)&&attempt<3){
     await new Promise(resolve=>setTimeout(resolve,1300*(attempt+1)));continue;
    }
-   throw Error('VK '+(code||'')+': '+(e.error_msg||e.message||'нет доступа'));
+   const kind=String(e?.error_type||e?.error_data?.error_type||'').replace(/[^A-Za-z0-9_-]/g,'').slice(0,55);
+   const description=String(e?.error_msg||e?.error_data?.error_msg||e?.message||'нет доступа').slice(0,190);
+   throw Error('VK '+(code?('код '+code):'без кода')+(kind?', '+kind:'')+': '+description);
   }
  }
 }
