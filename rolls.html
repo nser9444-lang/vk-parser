@@ -96,6 +96,7 @@ a{color:#086ab8}code{font-size:12px;background:#f5f8fc;padding:2px 5px}
 <p class="hint">В первом тесте разрешены предложенные записи с обычными фотографиями или без вложений. Другие типы вложений отдельно проверим позже. Время должно быть не раньше чем через час, с 10:00 до 20:00 МСК.</p>
 <div class="actions"><button id="testReview" disabled>Посмотреть запись перед переносом</button></div>
 <div id="testPreview" class="status">Тестовый перенос ещё не подготовлен.</div>
+<div id="testPhotos" style="display:flex;flex-wrap:wrap;gap:9px;margin-top:10px"></div>
 <label style="display:flex;align-items:flex-start;gap:8px;margin-top:14px">
   <input id="testConsent" type="checkbox" disabled style="width:auto;margin:4px 0 0">
   <span>Подтверждаю перенос только этой записи в отложенные, без публикации сейчас.</span>
@@ -169,6 +170,7 @@ function pickTestSlot(){
 }
 function resetTest(){
  testReviewed=null;
+ $('testPhotos').textContent='';
  $('testConsent').checked=false;
  $('testConsent').disabled=true;
  $('testSend').disabled=true;
@@ -289,6 +291,20 @@ $('testReview').addEventListener('click',()=>{
     '\nВремя: '+when.replace('T',' ')+' МСК'+
     '\nФотографий: '+p.attachments.length+
     '\nТекст без ИИ-корректуры:\n'+(p.text||'(без текста)'));
+  const gallery=$('testPhotos');
+  for(const attachment of p.attachments){
+   const sizes=attachment.photo?.sizes||[];
+   const entry=sizes.filter(x=>x&&typeof x.url==='string'&&/^https:\/\//.test(x.url))
+     .sort((a,b)=>Math.abs((a.width||0)-320)-Math.abs((b.width||0)-320))[0];
+   if(!entry)continue;
+   const link=document.createElement('a');
+   link.href=entry.url;link.target='_blank';link.rel='noopener noreferrer';
+   const image=document.createElement('img');
+   image.src=entry.url;image.alt='Исходная фотография предложенной записи';
+   image.loading='lazy';image.style.maxWidth='145px';
+   image.style.maxHeight='120px';image.style.borderRadius='8px';
+   link.appendChild(image);gallery.appendChild(link);
+  }
   $('testConsent').disabled=false;
  }catch(e){status('testPreview','Проверка не пройдена: '+e.message);}
 });
