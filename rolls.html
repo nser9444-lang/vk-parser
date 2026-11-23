@@ -80,8 +80,32 @@ a{color:#086ab8}code{font-size:12px;background:#f5f8fc;padding:2px 5px}
 <div id="list" class="list"><div class="empty">Нет записей для предпросмотра</div></div>
 </section>
 
+<section class="panel" id="singleTestPanel">
+<h2>4. Тестовый перенос одной предложенной записи</h2>
+<p>Проверим перенос <b>одной</b> предложенной новости в отложенные через разрешение ВК внутри приложения. Для первого теста <b>текст не редактируем</b> и не меняем фотографии — сначала проверяем сам механизм переноса. Для ИИ-корректуры потребуется отдельный API-ключ.</p>
+<div class="grid">
+  <div>
+    <label for="testPost">Выбрать предложенную запись</label>
+    <select id="testPost" disabled><option value="">Сначала загрузи предложенные новости</option></select>
+  </div>
+  <div>
+    <label for="testTime">Время публикации (по Москве)</label>
+    <input id="testTime" type="datetime-local" disabled>
+  </div>
+</div>
+<p class="hint">В первом тесте разрешены предложенные записи с обычными фотографиями или без вложений. Другие типы вложений отдельно проверим позже. Время должно быть не раньше чем через час, с 10:00 до 20:00 МСК.</p>
+<div class="actions"><button id="testReview" disabled>Посмотреть запись перед переносом</button></div>
+<div id="testPreview" class="status">Тестовый перенос ещё не подготовлен.</div>
+<label style="display:flex;align-items:flex-start;gap:8px;margin-top:14px">
+  <input id="testConsent" type="checkbox" disabled style="width:auto;margin:4px 0 0">
+  <span>Подтверждаю перенос только этой записи в отложенные, без публикации сейчас.</span>
+</label>
+<div class="actions"><button id="testSend" disabled style="background:#166f49">Перенести ОДНУЮ запись в отложенные</button></div>
+<div id="testStatus" class="status" role="status">ВКонтакте пока ничего не изменено.</div>
+</section>
+
 <section class="panel">
-<h2>4. Подготовить к переносу в отложенные</h2>
+<h2>5. Подготовить массовый перенос (пока выключен)</h2>
 <p>После подтверждения заявки в закрытом GitHub обработчик заново получит все предложенные записи, исправит ошибки, добавит до двух уместных эмодзи и перенесёт записи в отложенные. Оригинальные вложения сохраняются посредством исходного идентификатора предложенной записи.</p>
 <div class="warning"><b>Защита от случайной публикации.</b> На этапе установки система работает в тестовом режиме и ничего не меняет в ВК. Реальный перенос включается отдельно после проверки прав доступа и пробного запуска. Если ИИ изменит цены, числа или ссылки, запись не отправится автоматически.</div>
 <div class="actions"><button id="prepare" disabled>Подготовить все записи</button><a id="issueLink" class="button" target="_blank" rel="noopener noreferrer" style="display:none">Открыть заявку в GitHub ↗</a></div>
@@ -105,6 +129,171 @@ function plusDate(iso,n){
   return d.toISOString().slice(0,10);
 }
 $('startDate').value=plusDate(moscowDate(new Date()),1);
+
+// Одна тестовая запись: защита от случайных повторных запросов wall.post.
+let testReviewed=null,testBusy=false,testAttempted=false;
+function photoSig(post){
+ return (post.attachments||[]).map(a=>{
+  const item=a[a.type]||{};
+  return [a.type,Number(item.owner_id)||0,Number(item.id)||0].join(':');
+ });
+}
+function availableForTest(post){
+ return post && Number.isSafeInteger(Number(post.id)) && Number(post.id)>0
+   && Array.isArray(post.attachments)
+   && post.attachments.every(x=>x.type==='photo'
+     && x.photo && Number.isSafeInteger(Number(x.photo.id))
+     && Number.isSafeInteger(Number(x.photo.owner_id)));
+}
+function moscowParts(date){
+ const fmt=new Intl.DateTimeFormat('en-GB',{
+  timeZone:'Europe/Moscow',year:'numeric',month:'2-digit',day:'2-digit',
+  hour:'2-digit',minute:'2-digit',hourCycle:'h23'
+ });
+ const p={};
+ fmt.formatToParts(date).forEach(q=>{if(q.type!=='literal')p[q.type]=q.value;});
+ return {day:p.year+'-'+p.month+'-'+p.day,minute:Number(p.hour)*60+Number(p.minute)};
+}
+function pickTestSlot(){
+ const today=moscowDate(new Date());
+ for(let i=1;i<=20;i++){
+  const day=plusDate(today,i);
+  for(const minute of [780,810,840,870,900,930,960,990,1020,1050,1080,720,750,660,690,600,630,1140,1170,1200]){
+   const occupied=postponed.some(p=>p.date && (()=>{const d=moscowParts(new Date(p.date*1000));return d.day===day&&Math.abs(d.minute-minute)<15;})());
+   if(!occupied){
+    return day+'T'+String(Math.floor(minute/60)).padStart(2,'0')+':'+String(minute%60).padStart(2,'0');
+   }
+  }
+ }
+ return '';
+}
+function resetTest(){
+ testReviewed=null;
+ $('testConsent').checked=false;
+ $('testConsent').disabled=true;
+ $('testSend').disabled=true;
+ status('testPreview','Нажми «Посмотреть запись перед переносом».');
+}
+function testChoices(){
+ const good=suggests.filter(availableForTest);
+ $('testPost').innerHTML='<option value="">Выбери предложенную запись</option>'+
+  good.map(p=>'<option value="'+Number(p.id)+'">№'+Number(p.id)+
+    ' · фото: '+(p.attachments||[]).length+' · '+esc((p.text||'(без текста)').replace(/\s+/g,' ').slice(0,75))+'</option>').join('');
+ $('testPost').disabled=!good.length || testAttempted;
+ $('testTime').disabled=!good.length || testAttempted;
+ $('testReview').disabled=!good.length || testAttempted;
+ if(good.length){
+  $('testPost').value=String(good[0].id);
+  $('testTime').value=pickTestSlot();
+ }
+ resetTest();
+ if(!good.length)status('testPreview','Нет предложенных записей с обычными фотографиями либо без вложений.');
+}
+async function confirmTest(){
+ if(testBusy||testAttempted||!testReviewed||!token||!groupId)return;
+ const chosen=suggests.find(p=>p.id===testReviewed.postId);
+ if(!chosen||$('testPost').value!==String(testReviewed.postId)
+    ||$('testTime').value!==testReviewed.when){
+  resetTest();status('testStatus','Данные изменились. Снова проверь запись.');return;
+ }
+ const stamp=Date.parse(testReviewed.when+':00+03:00');
+ if(!Number.isFinite(stamp)||stamp < Date.now()+60*60*1000){
+  resetTest();status('testStatus','Время уже слишком близко. Выбери другое.');return;
+ }
+ if(!$('testConsent').checked)return;
+ if(!window.confirm('Отправить ОДНУ предложенную запись №'+chosen.id+
+    ' в отложенные сообщества club'+groupId+' на '+testReviewed.when.replace('T',' ')+
+    ' МСК? Текст и фотографии будут сохранены без изменений.'))return;
+ testBusy=true;$('testSend').disabled=true;$('testReview').disabled=true;
+ try{
+  status('testStatus','Проверяем, что запись всё ещё предложена и время свободно…');
+  // Refresh on the server before sending; abort if the original has changed.
+  const latest=await loadWall('suggests');
+  const original=latest.find(p=>Number(p.id)===Number(chosen.id));
+  if(!original)throw Error('Запись уже исчезла из предложенных; перенос отменён.');
+  if((original.text||'')!==(chosen.text||'')||
+     JSON.stringify(photoSig(original))!==JSON.stringify(photoSig(chosen))){
+   throw Error('Исходный текст или фотографии изменились; перенос отменён.');
+  }
+  const currentPostponed=await loadWall('postponed');
+  const when=moscowParts(new Date(stamp));
+  if(currentPostponed.some(p=>p.date&&(()=>{const d=moscowParts(new Date(p.date*1000));return d.day===when.day&&Math.abs(d.minute-when.minute)<15;})())){
+   throw Error('Выбранное время уже занято. Выбери другое время.');
+  }
+  const payload={owner_id:-groupId,post_id:Number(chosen.id),from_group:1,
+    message:original.text||'',publish_date:Math.floor(stamp/1000)};
+  if(!payload.message && !(original.attachments||[]).length){
+   throw Error('Нельзя перенести пустую предложенную запись.');
+  }
+  status('testStatus','Отправляем одну запись в отложенные…');
+  testAttempted=true; // Never automatically re-send on uncertain network outcome.
+  const response=await api('wall.post',payload,false);
+  if(!response||!Number.isInteger(Number(response.post_id))){
+   throw Error('ВК не подтвердил номер записи. Проверь отложенные вручную и не повторяй отправку.');
+  }
+  const resultId=Number(response.post_id);
+  status('testStatus','ВК вернул ID '+resultId+'. Проверяем отложенные и фотографии…');
+  let found=null;
+  for(let i=0;i<3;i++){
+   const all=await loadWall('postponed');
+   found=all.find(p=>Number(p.id)===resultId);
+   if(found){postponed=all;break;}
+   await new Promise(resolve=>setTimeout(resolve,1100));
+  }
+  if(!found){
+   status('testStatus','ВК подтвердил post_id='+resultId+', но запись пока не видна в отложенных. Не нажимай повторно. Проверь раздел «Отложенные» вручную.');
+   return;
+  }
+  const textOk=(found.text||'')===(original.text||'');
+  const photoOk=JSON.stringify(photoSig(found))===JSON.stringify(photoSig(original));
+  const timeOk=Math.abs(Number(found.date||0)*1000-stamp)<60*1000;
+  status('testStatus','Ответ ВК: запись №'+resultId+' находится в отложенных.'+
+    '\nТекст: '+(textOk?'совпадает':'ОТЛИЧАЕТСЯ, проверь вручную')+
+    '\nФотографии: '+(photoOk?'совпадают':'ОТЛИЧАЮТСЯ, проверь вручную')+
+    '\nВремя публикации: '+(timeOk?'совпадает':'ОТЛИЧАЕТСЯ, проверь вручную')+
+    '\nСсылка: https://vk.ru/wall-'+groupId+'_'+resultId);
+  suggests=latest.filter(p=>Number(p.id)!==Number(chosen.id));
+  render();calculate();testChoices();
+ }catch(e){
+  status('testStatus','Ошибка: '+e.message+
+    (testAttempted?'\nЗапрос wall.post мог быть принят ВК. Нельзя повторять без проверки отложенных.':'\nЗапрос wall.post ещё не выполнялся.'));
+ }finally{
+  testBusy=false;
+  $('testSend').disabled=true;
+  $('testReview').disabled=testAttempted||!suggests.length;
+  $('testPost').disabled=testAttempted||!suggests.length;
+  $('testTime').disabled=testAttempted||!suggests.length;
+ }
+}
+$('testPost').addEventListener('change',resetTest);
+$('testTime').addEventListener('change',resetTest);
+$('testConsent').addEventListener('change',()=>{$('testSend').disabled=!(testReviewed&&$('testConsent').checked)||testBusy||testAttempted;});
+$('testReview').addEventListener('click',()=>{
+ resetTest();
+ try{
+  const p=suggests.find(x=>Number(x.id)===Number($('testPost').value));
+  if(!availableForTest(p))throw Error('Выбери предложенную запись с обычными фотографиями.');
+  const when=$('testTime').value;
+  if(!/^\d{4}-\d\d-\d\dT\d\d:\d\d$/.test(when))throw Error('Выбери дату и время по Москве.');
+  const timestamp=Date.parse(when+':00+03:00');
+  const m=Number(when.slice(11,13))*60+Number(when.slice(14,16));
+  if(!Number.isFinite(timestamp)||timestamp<Date.now()+60*60*1000||
+     timestamp>Date.now()+22*24*60*60*1000||m<600||m>1200)
+   throw Error('Укажи время от 10:00 до 20:00 МСК в ближайшие 20 дней, минимум через час.');
+  const d=moscowParts(new Date(timestamp));
+  if(postponed.some(x=>x.date&&(()=>{const v=moscowParts(new Date(x.date*1000));return v.day===d.day&&Math.abs(v.minute-d.minute)<15;})()))
+   throw Error('На это время уже есть отложенная запись (интервал 15 минут).');
+  testReviewed={postId:Number(p.id),when};
+  status('testPreview','Сообщество: club'+groupId+
+    '\nИсходная запись №'+p.id+
+    '\nВремя: '+when.replace('T',' ')+' МСК'+
+    '\nФотографий: '+p.attachments.length+
+    '\nТекст без ИИ-корректуры:\n'+(p.text||'(без текста)'));
+  $('testConsent').disabled=false;
+ }catch(e){status('testPreview','Проверка не пройдена: '+e.message);}
+});
+$('testSend').addEventListener('click',confirmTest);
+
 function status(id,s){$(id).textContent=s;}
 function checkEnvironment(){
  const bridgePresent=typeof vkBridge!=='undefined';
@@ -240,6 +429,7 @@ async function load(){
   $('calculate').disabled=!suggests.length;
   if(suggests.length)calculate();
   else status('planStatus','Предложенных новостей сейчас нет.');
+  testChoices();
  }catch(err){status('loadStatus','Ошибка: '+err.message);status('planStatus','Расписание не построено.');}
  finally{loading=false;$('load').disabled=false;$('reload').disabled=false;render();}
 }
