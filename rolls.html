@@ -461,8 +461,26 @@ async function uploadOnePhotoToVk(){
      /^https:\/\//.test(x.url)).sort((a,b)=>
        ((b.width||0)*(b.height||0))-((a.width||0)*(a.height||0)));
    if(!sizes.length)throw Error('ВК не вернул ссылку на исходную фотографию.');
-   status('photoSaveStatus','Скачиваем исходные байты фото с VK CDN, без изменения изображения…');
-   blob=await getImageBytes(sizes[0].url);
+   const visited=new Set(),errors=[];
+   for(const rendition of sizes){
+    if(visited.has(rendition.url))continue;
+    visited.add(rendition.url);
+    status('photoSaveStatus','Проверяем доступный размер фотографии из ВК ('+
+       visited.size+' из '+sizes.length+'). Изображение не изменяем…');
+    try{
+     blob=await getImageBytes(rendition.url);
+     status('photoSaveStatus','Исходная версия фото получена. Размер: '+
+       (rendition.width||'?')+'×'+(rendition.height||'?')+
+       '. Никакого пересжатия не выполняем.');
+     break;
+    }catch(e){
+     const m=String(e?.message||e);
+     errors.push(m.includes('HTTP ') ? m.match(/HTTP \\d+/)?.[0]||'HTTP ошибка' : 'сетевая ошибка/CORS');
+    }
+   }
+   if(!blob)throw Error('Все '+visited.size+' ссылок на размеры фотографии оказались недоступны ('+
+     errors.join(', ')+'). Это не ошибка ключа сообщества. '+
+     'Открой фото во ВК, сохрани исходный файл и выбери его ниже.');
   }
   if(!blob || !blob.size || blob.size>20*1024*1024)
    throw Error('Размер фото должен быть больше нуля и не превышать 20 МБ.');
