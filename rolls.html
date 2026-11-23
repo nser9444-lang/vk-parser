@@ -82,8 +82,10 @@ a{color:#086ab8}code{font-size:12px;background:#f5f8fc;padding:2px 5px}
 
 <section class="panel" id="singleTestPanel">
 <h2>4. Проверка исходной фотографии через ключ сообщества</h2>
-<p>Обычную отложенную запись через ключ сообщества мы уже проверили. Теперь проверим, примет ли ВКонтакте <b>первую фотографию выбранной предложенной записи</b> как вложение <b>НОВОЙ</b> отложенной публикации в <b>тестовом сообществе</b> <code>club213682439</code>. Исходную предложенную запись не меняем.</p>
-<div class="info">Ключ уже хранится в закрытом GitHub как <code>VK_PUBLISH_TOKEN</code>. Новый токен и OpenAI API для этого теста не нужны. Текст тестовой публикации будет служебным. Дата — <b>2 марта 2027 года, 15:00 МСК</b>; после проверки тестовую запись надо удалить вручную.</div>
+<p><b>Результат теста №141: ВК создал отложенную запись №13 без фотографии.</b> Отправка фото по ID через ключ сообщества не прошла проверку. Новые тестовые и массовые публикации с фотографиями заблокированы до выяснения способа загрузки изображения.</p>
+<div class="warning"><b>Удали тестовые отложенные записи:</b> №12 (1 марта 2027) и №13 (2 марта 2027) в <code>club213682439</code>. Фото в №13 отсутствует. Никаких новых записей в ходе следующей проверки не создаём.</div>
+<div class="actions"><button id="photoPermissionCheck" class="secondary">Проверить возможность загрузки фото (без публикации)</button></div>
+<div id="photoPermissionResult" class="status">Проверка пока не выполнена. Сначала загрузи предложенные записи в разделе 1.</div>
 <div class="grid">
   <div>
     <label for="testPost">Предложенная запись с фотографией</label>
@@ -102,8 +104,8 @@ a{color:#086ab8}code{font-size:12px;background:#f5f8fc;padding:2px 5px}
 <input id="testConsent" type="checkbox" disabled style="width:auto;margin:4px 0 0">
 <span>Разрешаю создать одну новую отложенную тестовую запись с выбранным фото в сообществе <b>club213682439</b>. Оригинал останется в «Предложенных».</span>
 </label>
-<div class="actions"><button id="testSend" disabled style="background:#166f49">Подготовить тест одной фотографии</button><a id="singleIssueLink" class="button" href="#" target="_blank" rel="noopener noreferrer" style="display:none">Подтвердить тест в GitHub ↗</a></div>
-<div id="testStatus" class="status" role="status">Никаких новых тестовых публикаций с фото ещё не создано.</div>
+<div class="actions"><button id="testSend" disabled style="background:#7c9a8d">Создание новых тестов с фото приостановлено</button><a id="singleIssueLink" class="button" href="#" target="_blank" rel="noopener noreferrer" style="display:none">Подтвердить тест в GitHub ↗</a></div>
+<div id="testStatus" class="status" role="status">ВК вернул post_id=13, но фотография в отложенной записи отсутствует. Тест признан неуспешным; новые заявки с фото не формируются.</div>
 <div class="actions"><button id="testCheck" class="secondary" type="button">Проверить отложенные после прошлой ошибки (без публикации)</button></div>
 <p class="hint">Это дополнительная проверка предыдущей неуспешной попытки из мини-приложения. Она только читает предложенные и отложенные записи.</p>
 </section>
@@ -219,6 +221,8 @@ function testChoices(){
  if(!photoPosts.length)status('testPreview','Нет предложенных записей с фотографиями, которые можно проверить. Сначала загрузи сообщество с фото.');
 }
 async function prepareSingleServerIssue(){
+ status('testStatus','Повторная отправка фото заблокирована после неуспешного теста №141. Используй проверку прав загрузки выше.');
+ return;
  if(testBusy||!testReviewed||!token||!groupId||!$('testConsent').checked)return;
  if(String(testReviewed.postId)!==$('testPost').value){
   resetTest();status('testStatus','Выбранная запись изменилась. Посмотри её заново.');return;
@@ -255,7 +259,7 @@ async function prepareSingleServerIssue(){
     '.\nНичего ещё не опубликовано. Нажми «Подтвердить тест в GitHub» и затем Create. '+
     'Результат появится в комментариях заявки. Никаких повторов после ошибки.');
  }catch(e){status('testStatus','Подготовка остановлена: '+e.message+' — записей ВК не меняли.');}
- finally{testBusy=false;$('testSend').disabled=!(testReviewed&&$('testConsent').checked);}
+ finally{testBusy=false;$('testSend').disabled=true;}
 }
 async function verifyLastAttempt(){
  const p=readAttempt();
@@ -321,7 +325,7 @@ async function verifyLastAttempt(){
 $('testCheck').addEventListener('click',verifyLastAttempt);
 $('testPost').addEventListener('change',resetTest);
 $('testTime').addEventListener('change',resetTest);
-$('testConsent').addEventListener('change',()=>{$('testSend').disabled=!(testReviewed&&$('testConsent').checked)||testBusy;});
+$('testConsent').addEventListener('change',()=>{$('testSend').disabled=true;});
 $('testReview').addEventListener('click',()=>{
  resetTest();
  try{
@@ -350,6 +354,23 @@ $('testReview').addEventListener('click',()=>{
   $('testConsent').disabled=false;
  }catch(e){status('testPreview','Ошибка предпросмотра: '+e.message);}
 });
+
+async function checkPhotoUploadPermission(){
+ const b=$('photoPermissionCheck');
+ b.disabled=true;
+ try{
+  if(!token||!groupId)throw Error('Сначала выбери сообщество и нажми «Загрузить все предложенные».');
+  status('photoPermissionResult','Проверяем разрешение photos.getWallUploadServer для выбранного сообщества…');
+  const response=await api('photos.getWallUploadServer',{group_id:groupId},false);
+  if(response&&typeof response.upload_url==='string'&&response.upload_url.length>0)
+    status('photoPermissionResult','✅ ВК вернул адрес сервера загрузки для авторизации этого приложения. Ничего не загрузили и не опубликовали. Это подтверждает только первый шаг; сохранение фото ещё потребуется проверить отдельно.');
+  else
+    status('photoPermissionResult','ВК не вернул адрес сервера загрузки. Загрузка фото через этот способ пока не подтверждена.');
+ }catch(e){
+  status('photoPermissionResult','Загрузка фото через токен текущего приложения недоступна: '+e.message+'\nЭто был только запрос адреса сервера, без загрузки файла и публикации.');
+ }finally{b.disabled=false;}
+}
+$('photoPermissionCheck').addEventListener('click',checkPhotoUploadPermission);
 $('testSend').addEventListener('click',prepareSingleServerIssue);
 
 function status(id,s){$(id).textContent=s;}
