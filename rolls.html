@@ -305,10 +305,10 @@ async function verifyLastAttempt(){
    latest.forEach(x=>lines.push('• №'+x.id+' · '+new Date(Number(x.date)*1000).toLocaleString('ru-RU',{timeZone:'Europe/Moscow'})+' МСК · https://vk.ru/wall-'+groupId+'_'+x.id));
    if(!latest.length)lines.push('Нет записей в отложенных.');
    lines.push('Это только просмотр списка. Проверь нужный пост вручную по тексту и фотографиям. Ничего не отправлено.');
-   status('testStatus',lines.join('\\n'));
+   status('testStatus',lines.join('\n'));
    postponed=scheduled;suggests=suggested;
    render();calculate();testChoices();
-   status('testStatus',lines.join('\\n'));
+   status('testStatus',lines.join('\n'));
   }catch(e){status('testStatus','Ошибка чтения: '+e.message+'. Записей ВК не изменяли.');}
   finally{button.disabled=false;}
   return;
