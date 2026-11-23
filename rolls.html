@@ -103,6 +103,8 @@ a{color:#086ab8}code{font-size:12px;background:#f5f8fc;padding:2px 5px}
 </label>
 <div class="actions"><button id="testSend" disabled style="background:#166f49">Перенести ОДНУЮ запись в отложенные</button></div>
 <div id="testStatus" class="status" role="status">ВКонтакте пока ничего не изменено.</div>
+<div class="actions"><button id="testCheck" class="secondary" type="button">Проверить состояние после ошибки (без публикации)</button></div>
+<p class="hint">Проверка только читает «Предложенные» и «Отложенные». Если предыдущий запрос был отправлен, не повторяй его до проверки в самом ВК. Последний ID теста сохраняется в браузере без токена и текста.</p>
 </section>
 
 <section class="panel">
@@ -133,6 +135,19 @@ $('startDate').value=plusDate(moscowDate(new Date()),1);
 
 // Одна тестовая запись: защита от случайных повторных запросов wall.post.
 let testReviewed=null,testBusy=false,testAttempted=false;
+const ATTEMPT_KEY='vk-rolls-last-attempt-v2';
+function readAttempt(){
+ try{
+  const p=JSON.parse(localStorage.getItem(ATTEMPT_KEY)||'null');
+  if(!p||!Number.isInteger(p.groupId)||!Number.isInteger(p.sourceId)||!Number.isInteger(p.publishDate))return null;
+  return p;
+ }catch(e){return null;}
+}
+function saveAttempt(group,source,at){
+ try{localStorage.setItem(ATTEMPT_KEY,JSON.stringify({groupId:group,sourceId:source,publishDate:at,when:new Date().toISOString()}));}
+ catch(e){}
+}
+
 function photoSig(post){
  return (post.attachments||[]).map(a=>{
   const item=a[a.type]||{};
@@ -182,6 +197,8 @@ function testChoices(){
  $('testPost').innerHTML='<option value="">Выбери предложенную запись</option>'+
   good.map(p=>'<option value="'+Number(p.id)+'">№'+Number(p.id)+
     ' · фото: '+(p.attachments||[]).length+' · '+esc((p.text||'(без текста)').replace(/\s+/g,' ').slice(0,75))+'</option>').join('');
+ const old=readAttempt();
+ if(old&&old.groupId===groupId)testAttempted=true;
  $('testPost').disabled=!good.length || testAttempted;
  $('testTime').disabled=!good.length || testAttempted;
  $('testReview').disabled=!good.length || testAttempted;
@@ -191,6 +208,7 @@ function testChoices(){
  }
  resetTest();
  if(!good.length)status('testPreview','Нет предложенных записей с обычными фотографиями либо без вложений.');
+ if(testAttempted)status('testStatus','На этом устройстве была попытка переноса записи. Повторная отправка заблокирована. Нажми «Проверить состояние после ошибки».');
 }
 async function confirmTest(){
  if(testBusy||testAttempted||!testReviewed||!token||!groupId)return;
@@ -230,6 +248,7 @@ async function confirmTest(){
   }
   status('testStatus','Отправляем одну запись в отложенные…');
   testAttempted=true; // Never automatically re-send on uncertain network outcome.
+  saveAttempt(groupId,Number(chosen.id),Math.floor(stamp/1000));
   const response=await api('wall.post',payload,false);
   if(!response||!Number.isInteger(Number(response.post_id))){
    throw Error('ВК не подтвердил номер записи. Проверь отложенные вручную и не повторяй отправку.');
@@ -268,6 +287,48 @@ async function confirmTest(){
   $('testTime').disabled=testAttempted||!suggests.length;
  }
 }
+async function verifyLastAttempt(){
+ const p=readAttempt();
+ if(!p){
+  status('testStatus','Сохранённых попыток на этом устройстве нет. Для прежней попытки проверь отложенные записи непосредственно во ВКонтакте; повторно отправлять без проверки нельзя.');
+  return;
+ }
+ if(!token||!groupId){
+  status('testStatus','Сначала выбери сообщество и нажми «Загрузить все предложенные». Проверка будет только чтением.');
+  return;
+ }
+ if(groupId!==p.groupId){
+  status('testStatus','Последний тест выполнялся в сообществе club'+p.groupId+'. Выбери его и заново загрузи предложенные новости.');
+  return;
+ }
+ const btn=$('testCheck');btn.disabled=true;
+ try{
+  status('testStatus','Проверяем без публикации: запись №'+p.sourceId+', отложенные и предложенные…');
+  const [suggested,scheduled]=await Promise.all([loadWall('suggests'),loadWall('postponed')]);
+  const isSuggested=suggested.some(x=>Number(x.id)===p.sourceId);
+  const sameId=scheduled.find(x=>Number(x.id)===p.sourceId);
+  const sameDate=scheduled.filter(x=>Math.abs(Number(x.date)*1000-p.publishDate*1000)<120000);
+  const result=[];
+  result.push('Последняя попытка: предложенная запись №'+p.sourceId+', время '+new Date(p.publishDate*1000).toLocaleString('ru-RU',{timeZone:'Europe/Moscow'})+' МСК.');
+  result.push('В предложенных: '+(isSuggested?'запись всё ещё есть':'запись не найдена'));
+  result.push('В отложенных: '+(sameId?'найдена запись с тем же ID':sameDate.length?'есть '+sameDate.length+' запись(ей) близко к выбранному времени':'пока не найдена запись на это время'));
+  result.push('Всего в отложенных: '+scheduled.length+'; предложенных: '+suggested.length+'.');
+  if(sameId){
+   result.push('Ссылка: https://vk.ru/wall-'+p.groupId+'_'+sameId.id);
+   result.push('Проверь исходный текст, фотографии и время вручную.');
+  }else if(sameDate.length===1){
+   result.push('Возможный результат: https://vk.ru/wall-'+p.groupId+'_'+sameDate[0].id);
+   result.push('Это только совпадение времени, не доказательство переноса. Проверь вручную.');
+  }
+  result.push('ВК не подтверждал приложению результат предыдущей отправки. Повторный запрос НЕ выполнялся.');
+  status('testStatus',result.join('\n'));
+  postponed=scheduled;suggests=suggested;
+  render();calculate();testChoices();
+  status('testStatus',result.join('\\n'));
+ }catch(e){status('testStatus','Проверить не удалось: '+e.message+'. Ничего не публиковалось. Проверь отложенные напрямую в ВК.');}
+ finally{btn.disabled=false;}
+}
+$('testCheck').addEventListener('click',verifyLastAttempt);
 $('testPost').addEventListener('change',resetTest);
 $('testTime').addEventListener('change',resetTest);
 $('testConsent').addEventListener('change',()=>{$('testSend').disabled=!(testReviewed&&$('testConsent').checked)||testBusy||testAttempted;});
