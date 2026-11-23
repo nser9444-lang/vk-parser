@@ -396,6 +396,148 @@ async function checkPhotoUploadPermission(){
  }
 }
 $('photoPermissionCheck').addEventListener('click',checkPhotoUploadPermission);
+
+let photoSaveBusy=false;
+const PHOTO_SAVE_TARGET_ID=213682439;
+function photoSaveKey(sourceGroup,sourcePost,photoOwner,photoId){
+ return 'vk-rolls-photo-save-v1:'+sourceGroup+':'+sourcePost+':'+photoOwner+':'+photoId;
+}
+function jsonApiError(e){
+ const code=Number(e?.error_code||e?.error?.error_code||e?.error_data?.error_code||e?.error_data?.error?.error_code||0);
+ const msg=String(e?.error_msg||e?.error_data?.error_msg||e?.message||'неизвестная ошибка')
+  .replace(/(?:vk[12]\.a\.[A-Za-z0-9._-]+|access_token=[^\s&]+)/ig,'[скрыто]').slice(0,150);
+ return (code?'VK код '+code+': ':'')+msg;
+}
+async function getImageBytes(imageUrl){
+ if(!/^https:\/\//i.test(imageUrl))throw Error('Нет подходящего защищённого адреса исходной фотографии.');
+ let response;
+ try{
+  const ac=new AbortController(),t=setTimeout(()=>ac.abort(),25000);
+  try{response=await fetch(imageUrl,{mode:'cors',credentials:'omit',signal:ac.signal});}
+  finally{clearTimeout(t);}
+ }catch(e){
+  throw Error('Браузер не смог скачать оригинальную фотографию из VK CDN (возможно, CORS). '+
+   'Можно сохранить исходный файл вручную и выбрать его ниже. Ошибка: '+String(e?.name||'сеть'));
+ }
+ if(!response.ok)throw Error('Источник фотографии недоступен: HTTP '+response.status);
+ const blob=await response.blob();
+ return blob;
+}
+async function uploadOnePhotoToVk(){
+ if(photoSaveBusy)return;
+ const button=$('photoSaveBtn');
+ if(!groupId||!token||!testReviewed||!$('testConsent').checked){
+  status('photoSaveStatus','Выбери фото, нажми «Посмотреть исходное фото» и подтверди сохранение.');return;
+ }
+ if(String(testReviewed.postId)!==String($('testPost').value)){
+  resetTest();return;
+ }
+ photoSaveBusy=true;button.disabled=true;
+ let saveRequested=false,attemptKey='';
+ try{
+  const copy={...testReviewed};
+  const original=suggests.find(p=>Number(p.id)===copy.postId);
+  if(!original)throw Error('Выбранная исходная запись больше недоступна.');
+  status('photoSaveStatus','Проверяем исходную запись и фотографию (без изменений в ВК)…');
+  const latest=(await loadWall('suggests')).find(p=>Number(p.id)===copy.postId);
+  if(!latest || (latest.text||'')!==(original.text||'') ||
+    JSON.stringify(photoSig(latest))!==JSON.stringify(photoSig(original)))
+   throw Error('Состав предложенной записи изменился. Обнови её и повтори предпросмотр.');
+  const attachment=(latest.attachments||[]).find(a=>a.type==='photo'&&
+    Number(a.photo?.owner_id)===copy.photoOwnerId&&Number(a.photo?.id)===copy.photoId);
+  if(!attachment)throw Error('Исходная фотография больше не найдена.');
+  attemptKey=photoSaveKey(groupId,copy.postId,copy.photoOwnerId,copy.photoId);
+  let previous=null;
+  try{previous=localStorage.getItem(attemptKey);}catch(e){}
+  if(previous)throw Error('Для этого фото на данном устройстве уже выполнялась попытка сохранения. '+
+    'Сначала проверь альбом стены тестовой группы, чтобы не создать дубликат: '+previous.slice(0,110));
+  const fallback=$('photoLocalFile')?.files?.[0]||null;
+  let blob;
+  if(fallback){
+   if(!window.confirm('Ты выбрал файл вручную. Подтверди, что это ТОЧНО оригинальная фотография из предложенной записи №'+copy.postId+' без редактирования.'))return;
+   blob=fallback;
+  }else{
+   const sizes=(attachment.photo.sizes||[]).filter(x=>x&&typeof x.url==='string'&&
+     /^https:\/\//.test(x.url)).sort((a,b)=>
+       ((b.width||0)*(b.height||0))-((a.width||0)*(a.height||0)));
+   if(!sizes.length)throw Error('ВК не вернул ссылку на исходную фотографию.');
+   status('photoSaveStatus','Скачиваем исходные байты фото с VK CDN, без изменения изображения…');
+   blob=await getImageBytes(sizes[0].url);
+  }
+  if(!blob || !blob.size || blob.size>20*1024*1024)
+   throw Error('Размер фото должен быть больше нуля и не превышать 20 МБ.');
+  const mime=(blob.type||'').split(';')[0].toLowerCase();
+  if(!['image/jpeg','image/png','image/webp'].includes(mime))
+   throw Error('Файл имеет неподдерживаемый формат '+(mime||'(не определён)')+
+     '. Требуется JPEG, PNG или WebP. Файл не преобразуем.');
+  const suffix=mime==='image/png'?'png':mime==='image/webp'?'webp':'jpg';
+  status('photoSaveStatus','Запрашиваем разрешения wall,photos для тестовой группы (без публикации)…');
+  const auth=await bridgeSend('VKWebAppGetAuthToken',{app_id:APP_ID,scope:'wall,photos'},25000);
+  const photoToken=auth&&auth.access_token;
+  if(typeof photoToken!=='string'||!photoToken)throw Error('Не получено разрешение на сохранение фотографий.');
+  const address=await bridgeSend('VKWebAppCallAPIMethod',{
+   method:'photos.getWallUploadServer',
+   params:{group_id:PHOTO_SAVE_TARGET_ID,access_token:photoToken,v:VERSION}
+  },18000);
+  if(address?.error)throw address.error;
+  const uploadUrl=(address?.response||address)?.upload_url;
+  if(typeof uploadUrl!=='string'||!uploadUrl)throw Error('ВК не выдал upload_url для тестовой группы.');
+  const parsed=new URL(uploadUrl);
+  if(parsed.protocol!=='https:')throw Error('Сервер загрузки вернул небезопасный адрес.');
+  const file=new File([blob],'original-photo.'+suffix,{type:mime});
+  const data=new FormData();data.append('photo',file,file.name);
+  status('photoSaveStatus','Передаём одну оригинальную фотографию на сервер загрузки ВК. Пост не создаём…');
+  let upload;
+  try{
+   const ac=new AbortController(),t=setTimeout(()=>ac.abort(),35000);
+   try{upload=await fetch(uploadUrl,{method:'POST',body:data,credentials:'omit',mode:'cors',signal:ac.signal});}
+   finally{clearTimeout(t);}
+  }catch(e){
+   throw Error('ВК или браузер не разрешил отправку файла на upload_url (возможен CORS). '+
+    'Фото не сохраняли через saveWallPhoto. '+String(e?.name||'сеть'));
+  }
+  if(!upload.ok)throw Error('Сервер загрузки ВК вернул HTTP '+upload.status+'; фото не сохраняли.');
+  let receipt;
+  try{receipt=await upload.json();}catch(e){throw Error('Сервер загрузки не вернул корректные JSON-данные.');}
+  if(receipt?.error)throw Error('Сервер загрузки ВК отклонил файл.');
+  if(!receipt || !receipt.photo || !receipt.server || !receipt.hash)
+   throw Error('Ответ сервера загрузки не содержит server, photo или hash.');
+  // From this point the VK API may save the photo even if the network call times out.
+  // Persist a no-retry marker before invoking the final save method.
+  status('photoSaveStatus','Фото загружено на сервер. Сейчас сохраняем его в альбом стены тестовой группы (не публикуем пост)…');
+  try{localStorage.setItem(attemptKey,'ожидает проверки: фото могло сохраниться');}catch(e){}
+  saveRequested=true;
+  const savedResponse=await bridgeSend('VKWebAppCallAPIMethod',{
+    method:'photos.saveWallPhoto',
+    params:{group_id:PHOTO_SAVE_TARGET_ID,server:receipt.server,photo:receipt.photo,
+      hash:receipt.hash,access_token:photoToken,v:VERSION}
+  },22000);
+  if(savedResponse?.error)throw savedResponse.error;
+  const saved=savedResponse?.response||savedResponse;
+  const photo=Array.isArray(saved)?saved[0]:null;
+  if(!photo || !Number.isSafeInteger(Number(photo.id)) || Number(photo.id)<=0)
+   throw Error('ВК не подтвердил ID сохранённого фото; обязательно проверь альбом вручную.');
+  const savedOwner=Number(photo.owner_id);
+  const savedId=Number(photo.id);
+  if(savedOwner!==-PHOTO_SAVE_TARGET_ID)
+   throw Error('Фотография сохранилась не под тестовой группой. ID: '+savedOwner+'_'+savedId);
+  try{localStorage.setItem(attemptKey,'сохранено: photo'+savedOwner+'_'+savedId);}catch(e){}
+  status('photoSaveStatus','✅ ВК подтвердил photos.saveWallPhoto. Сохранённая фотография: photo'+savedOwner+'_'+savedId+
+    '\\nАльбом стены: тестовая группа club'+PHOTO_SAVE_TARGET_ID+
+    '\\nИсходная предложенная запись №'+copy.postId+' осталась без изменений.'+
+    '\\nНикаких постов и отложенных записей НЕ создавали. Открой фотографии тестового сообщества и сравни изображение с исходником.');
+ }catch(e){
+  status('photoSaveStatus','Ошибка: '+jsonApiError(e)+
+   '\\nНикакого wall.post не было.'+
+   (saveRequested?' photos.saveWallPhoto уже вызывался: сохранение могло произойти. '+
+    'Проверь альбом фотографий тестовой группы перед повторением.'
+   :' Сохранение photos.saveWallPhoto не выполнялось.'));
+ }finally{
+  photoSaveBusy=false;button.disabled=true;
+ }
+}
+$('photoSaveBtn').addEventListener('click',uploadOnePhotoToVk);
+
 $('testSend').addEventListener('click',prepareSingleServerIssue);
 
 function status(id,s){$(id).textContent=s;}
