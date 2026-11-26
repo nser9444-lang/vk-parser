@@ -109,13 +109,18 @@ a{color:#086ab8}code{font-size:12px;background:#f5f8fc;padding:2px 5px}
 <p class="hint">Это дополнительная проверка предыдущей неуспешной попытки из мини-приложения. Она только читает предложенные и отложенные записи.</p>
 </section>
 
-<section class="panel">
-<h2>5. Подготовить массовый перенос (пока выключен)</h2>
-<p>После подтверждения заявки в закрытом GitHub обработчик заново получит все предложенные записи, исправит ошибки, добавит до двух уместных эмодзи и перенесёт записи в отложенные. Оригинальные вложения сохраняются посредством исходного идентификатора предложенной записи.</p>
-<div class="warning"><b>Защита от случайной публикации.</b> На этапе установки система работает в тестовом режиме и ничего не меняет в ВК. Реальный перенос включается отдельно после проверки прав доступа и пробного запуска. Если ИИ изменит цены, числа или ссылки, запись не отправится автоматически.</div>
-<div class="actions"><button id="prepare" disabled>Массовый перенос пока недоступен — проверяем фотографии</button><a id="issueLink" class="button" target="_blank" rel="noopener noreferrer" style="display:none">Открыть заявку в GitHub ↗</a></div>
-<div id="submitStatus" class="status">Пока ничего не отправлено.</div>
-<p class="hint">GitHub попросит нажать <b>Submit new issue</b>. Это подтверждает создание заявки; фактический перенос возможен только после включения серверного обработчика. Не отправляй одну и ту же заявку дважды.</p>
+<section class="panel" id="liveSection">
+<h2>5. Боевой режим — Старый Оскол</h2>
+<p>Предложенные новости → <b>новые отложенные записи</b> на 20 дней, время <b>10:00–20:00 МСК</b>. Используем существующий ключ <b>сообщества Старого Оскола</b>, без пользовательского токена.</p>
+<div class="warning"><b>Первый боевой пакет — максимум 5 публикаций.</b> Исходные тексты, цены, названия и фотографии не изменяем; ИИ-редактор не подключён. Отправляем только записи с обычными фотографиями, принадлежащими Старому Осколу, либо без вложений. Неподдерживаемые вложения не публикуем с потерями. После ответа ВК необходимо проверить фотографии и время вручную.</div>
+<div id="livePreflight" class="status">Загрузи предложенные Старого Оскола и рассчитай расписание на 20 дней.</div>
+<label style="display:flex;gap:10px;align-items:flex-start;margin-top:14px">
+<input id="liveConsent" type="checkbox" style="width:auto;margin-top:4px">
+<span>Подтверждаю <b>боевую отправку не более 5 новых отложенных записей</b> Старого Оскола, с исходными текстами без ИИ-корректуры и исходными фото. Понимаю, что оригиналы останутся в «Предложенных», а после создания GitHub-заявки публикации могут быть запланированы автоматически.</span>
+</label>
+<div class="actions"><button id="prepare" disabled>Подготовить боевой пакет — до 5 записей</button><a id="issueLink" class="button" href="#" target="_blank" rel="noopener noreferrer" style="display:none">Подтвердить боевой запуск в GitHub ↗</a></div>
+<div id="submitStatus" class="status">Записей ВК пока не изменяли. Подготовка заявки сама ничего не публикует.</div>
+<p class="hint">На закрытой странице GitHub нажми <b>Create</b>, чтобы запустить максимум 5 новых отложенных публикаций. История отправок сохраняется в GitHub до каждого запроса: при повторном запуске тот же исходный ID повторно не отправляется. Сначала проверь результат первого пакета, затем продолжим остальные.</p>
 </section>
 
 <div class="footer">Планировщик отделён от парсера авторов и автопубликации историй. Не изменяет другие разделы приложения.</div>
@@ -701,6 +706,7 @@ async function load(){
   if(suggests.length)calculate();
   else status('planStatus','Предложенных новостей сейчас нет.');
   testChoices();
+  updateLivePreflight();
  }catch(err){status('loadStatus','Ошибка: '+err.message);status('planStatus','Расписание не построено.');}
  finally{loading=false;$('load').disabled=false;$('reload').disabled=false;render();}
 }
@@ -743,7 +749,7 @@ function calculate(){
   plan=result.sort((a,b)=>a.at.localeCompare(b.at));
   if(new Date(plan[0].at).getTime()<=Date.now()+20*60*1000)throw Error('Начало слишком близко. Выбери следующий день.');
   status('planStatus','План готов: '+plan.length+' из '+suggests.length+' предложенных новостей.\nПервые публикации: '+plan.slice(0,4).map(x=>x.atLabel).join(' · ')+'\nПоследняя: '+plan[plan.length-1].atLabel);
-  $('prepare').disabled=true; // Bulk transfer not ready until photo preservation is confirmed.
+  updateLivePreflight();
  }catch(err){status('planStatus','Ошибка планирования: '+err.message);plan=[];}
  render();
 }
@@ -751,19 +757,112 @@ $('load').addEventListener('click',load);
 $('reload').addEventListener('click',load);
 $('startDate').addEventListener('change',()=>{if(suggests.length)calculate();});
 $('calculate').addEventListener('click',calculate);
-$('prepare').addEventListener('click',()=>{
- if(!plan.length||!groupId)return;
- const data={kind:'rolls-schedule-v1',group_id:groupId,start_date:$('startDate').value,
- days:20,start_hour:10,end_hour:20,preview_count:plan.length};
- const title='[ROLLS] '+groupName+' · 20 дней · '+data.start_date;
- const body='Планировщик роллов. Запрос на обработку ВСЕХ предложенных новостей.\n'
- +'Окно: 10:00–20:00 по Москве. Срок: 20 дней. Редактор: грамматика, пунктуация, до 2 эмодзи.\n'
- +'Фотографии и вложения не заменять. Подробности и статус — в приватном отчёте.\n\n'
- +'~~~vk-rolls-json\n'+JSON.stringify(data)+'\n~~~';
- const url='https://github.com/nser9444-lang/vk-parser-data/issues/new?title='
- +encodeURIComponent(title)+'&body='+encodeURIComponent(body);
- $('issueLink').href=url;$('issueLink').style.display='inline-block';
- status('submitStatus','Заявка подготовлена для '+plan.length+' предложенных записей. Нажми «Открыть заявку в GitHub», затем «Submit new issue». Никаких записей ВК эта кнопка сама не меняет.');
+function eligibleLivePosts(){
+ if(groupId!==222561013)return {allowed:[],blocked:plan.length,duplicates:0};
+ const allowed=[];let blocked=0,duplicates=0;
+ for(const entry of plan){
+  const p=entry.post;
+  const media=p.attachments||[];
+  const rightOwner=Number(p.owner_id)===-222561013;
+  const suitable=Array.isArray(media)&&media.length<=10&&
+     media.every(a=>a&&a.type==='photo'&&a.photo&&
+       Number(a.photo.owner_id)===-222561013&&Number.isSafeInteger(Number(a.photo.id))&&Number(a.photo.id)>0);
+  if(!rightOwner || !suitable || (typeof p.text!=='string') ||
+       p.text.length>12000 || (!(p.text||'').trim() && !media.length)){
+    blocked++;continue;
+  }
+  const duplicate=postponed.some(x=>
+    x.text===p.text &&
+    JSON.stringify(photoSig(x))===JSON.stringify(photoSig(p)));
+  if(duplicate){duplicates++;continue;}
+  allowed.push(entry);
+ }
+ return {allowed,blocked,duplicates};
+}
+function updateLivePreflight(){
+ $('issueLink').style.display='none';
+ const consent=$('liveConsent').checked;
+ if(groupId!==222561013){
+  status('livePreflight','Боевой режим пока разрешён только для Старого Оскола (club222561013). Выбери его в разделе 1.');
+  $('prepare').disabled=true;return;
+ }
+ if(!plan.length){
+  status('livePreflight','Сначала загрузи предложенные новости и рассчитай расписание.');
+  $('prepare').disabled=true;return;
+ }
+ const {allowed,blocked,duplicates}=eligibleLivePosts();
+ status('livePreflight','Всего предложенных в плане: '+plan.length+
+   '\nПодходят для сохранения исходного текста и фотографий: '+allowed.length+
+   '\nНеподдерживаемые вложения/источники: '+blocked+
+   '\nВозможно уже отложены (совпадение текста и фото): '+duplicates+
+   '\nВ первой заявке сервер отправит не более 5 ещё не обработанных ID. Оригиналы останутся в «Предложенных».');
+ $('prepare').disabled=!consent||!allowed.length;
+}
+$('liveConsent').addEventListener('change',updateLivePreflight);
+function bytesBase64(bytes){
+ let out='';
+ for(let i=0;i<bytes.length;i+=8192){
+  out+=String.fromCharCode(...bytes.subarray(i,i+8192));
+ }
+ return btoa(out).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
+}
+async function makeIssuePayload(items){
+ if(typeof CompressionStream==='undefined')
+  throw Error('Браузер не поддерживает безопасную сжатую заявку. Открой в актуальном Chrome внутри ВК.');
+ const str=JSON.stringify(items);
+ const stream=new Blob([str]).stream().pipeThrough(new CompressionStream('gzip'));
+ const compressed=new Uint8Array(await new Response(stream).arrayBuffer());
+ return bytesBase64(compressed);
+}
+$('prepare').addEventListener('click',async()=>{
+ if(!$('liveConsent').checked||groupId!==222561013||!plan.length)return;
+ $('prepare').disabled=true;$('issueLink').style.display='none';
+ try{
+  const {allowed,blocked,duplicates}=eligibleLivePosts();
+  if(!allowed.length)throw Error('Не осталось подходящих записей с сохраняемыми оригинальными фото.');
+  const now=Math.floor(Date.now()/1000);
+  // One approved snapshot from the mini-app; no VK token or photo URLs in the Issue.
+  const all=allowed.map(row=>{
+   const p=row.post;
+   return {
+    id:Number(p.id),source_owner_id:Number(p.owner_id),
+    text:String(p.text||''),
+    publish_date:Math.floor(new Date(row.at).getTime()/1000),
+    attachments:(p.attachments||[]).map(a=>({
+      type:'photo',owner_id:Number(a.photo.owner_id),id:Number(a.photo.id),
+      access_key:String(a.photo.access_key||'')
+    }))
+   };
+  });
+  const snapshot={kind:'rolls-live-oskol-v1',group_id:222561013,
+   days:20,start_hour:10,end_hour:20,start_date:$('startDate').value,
+   captured_at:now,preview_count:all.length,posts:all};
+  status('submitStatus','Упаковываем '+all.length+' записей в закрытую заявку GitHub. Токены и URL фотографий не передаём…');
+  const zipped=await makeIssuePayload(snapshot);
+  if(zipped.length>47000)throw Error('Данные слишком большие для одной заявки. Нужно уменьшить объём партии.');
+  const title='[ROLLS LIVE OSKOL] 20 дней · '+snapshot.start_date+' · '+all.length+' записей';
+  const body='БОЕВОЙ ЗАПУСК. Разрешён первый пакет МАКСИМУМ 5 новых отложенных записей Старого Оскола.\n'+
+    'Текст БЕЗ ИИ-корректуры. Фотографии исходные, принадлежат этому же сообществу. '+
+    'Оригинальные предложенные записи остаются на месте.\n'+
+    'Полный снимок: '+all.length+' записей; исключено по неподдерживаемым вложениям: '+blocked+
+    ', потенциальных дублей: '+duplicates+'.\n'+
+    'Запуск только после Create в GitHub. Продолжение остальных — отдельное подтверждение.\n\n'+
+    'vk-rolls-live-gzip:'+zipped;
+  const url='https://github.com/nser9444-lang/vk-parser-data/issues/new?title='+
+      encodeURIComponent(title)+'&body='+encodeURIComponent(body);
+  if(url.length>60000)throw Error('Слишком длинный адрес заявки: пакет требует разделения.');
+  $('issueLink').href=url;$('issueLink').style.display='inline-block';
+  status('submitStatus','Боевой пакет сформирован: '+all.length+' подходящих записей на 20 дней.\n'+
+    'Первый запуск — максимум 5. Нажми «Подтвердить боевой запуск в GitHub», затем Create.\n'+
+    'После этого сервер может сразу создать отложенные публикации. '+
+    'При ошибке автоматически повторяться они не будут.');
+ }catch(e){
+  status('submitStatus','Не удалось подготовить пакет: '+e.message+'. Ничего не опубликовано.');
+ }finally{updateLivePreflightButtonOnly();}
 });
+function updateLivePreflightButtonOnly(){
+ const allowed=eligibleLivePosts().allowed;
+ $('prepare').disabled=!$('liveConsent').checked||groupId!==222561013||!allowed.length;
+}
 })();
 </script></body></html>
