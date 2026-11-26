@@ -1,9 +1,9 @@
-name: "ITALIAN SUNRISE — новая группа с 1 объявлением"
+name: "ITALIAN SUNRISE — кампания 42876719: новая остановленная группа"
 on:
   workflow_dispatch:
     inputs:
       spec_path:
-        description: "Путь к JSON задания и двум изображениям внутри репозитория"
+        description: "Путь к JSON задания и пяти файлам изображений (4 формата + иконка)"
         required: true
         type: string
       confirmation:
@@ -15,7 +15,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: vkads-italian-sunrise-campaign-42378407
+  group: vkads-italian-sunrise-campaign-42876719
   cancel-in-progress: false
 
 jobs:
@@ -26,7 +26,7 @@ jobs:
       SPEC_PATH: ${{ inputs.spec_path }}
       CONFIRMATION: ${{ inputs.confirmation }}
       VK_ADS_ACCESS_TOKEN: ${{ secrets.VK_ADS_TOKEN_ITALIAN_SUNRISE }}
-      CAMPAIGN_ID: "42378407"
+      CAMPAIGN_ID: "42876719"
     steps:
       - name: "Проверить ручное подтверждение и наличие токена"
         shell: bash
@@ -52,12 +52,12 @@ jobs:
       - name: "Проверить тесты интеграции"
         run: python -m unittest discover -s vk_ads_bridge/tests -v
       - name: "Проверить задание, ничего не отправляя"
-        run: python -m vk_ads_bridge.one_ad_group "$SPEC_PATH"
+        run: python -m vk_ads_bridge.one_ad_group_current "$SPEC_PATH"
       - name: "Создать остановленную группу и одно объявление"
         env:
           VK_ADS_ALLOW_CREATE: "1"
         run: |
-          python -m vk_ads_bridge.one_ad_group "$SPEC_PATH" \
+          python -m vk_ads_bridge.one_ad_group_current "$SPEC_PATH" \
             --apply --confirm-campaign-id "$CAMPAIGN_ID" \
             --receipt-dir vkads-receipts
       - name: "Сохранить отчёт"
