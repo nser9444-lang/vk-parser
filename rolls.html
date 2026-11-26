@@ -80,12 +80,12 @@ a{color:#086ab8}code{font-size:12px;background:#f5f8fc;padding:2px 5px}
 <input id="authorConsent" type="checkbox" style="width:auto;margin-top:4px">
 <span>Подтверждаю, что авторы подходящих записей разрешили публично указать имя и ссылку на свою страницу. Если такого разрешения нет, оставь галочку снятой: публикации оформятся без имён.</span>
 </label>
-<p class="hint">Имена берём только из ВК: from_id и users.get. Если автор не найден или ID противоречат друг другу, подпись не добавляем. Сейчас боевой режим доступен в Старом Осколе. В каждой пятой позиции подходящего пакета с пустым текстом и фото добавляем призыв заказать.</p>
+<p class="hint">Имена берём только из ВК: from_id и users.get. Если автор не найден или ID противоречат друг другу, подпись не добавляем. Подводки и ссылки заказа подбираются для выбранного бренда. В каждой пятой позиции пакета с пустым текстом и фото добавляем ссылку заказа, если она известна.</p>
 <div id="planStatus" class="status">Загрузи предложенные новости, чтобы построить расписание.</div>
 <div id="list" class="list"><div class="empty">Нет записей для предпросмотра</div></div>
 </section>
 
-<section class="panel" id="singleTestPanel">
+<section class="panel" id="singleTestPanel" hidden>
 <h2>4. Загрузка фотографий — проверка ограничений</h2>
 <p><b>Результат теста №141: ВК создал отложенную запись №13 без фотографии.</b> Отправка фото по ID через ключ сообщества не прошла проверку. Новые тестовые и массовые публикации с фотографиями заблокированы до выяснения способа загрузки изображения.</p>
 <div class="warning"><b>Удали тестовые отложенные записи:</b> №12 (1 марта 2027) и №13 (2 марта 2027) в <code>club213682439</code>. Фото в №13 отсутствует. Никаких новых записей в ходе следующей проверки не создаём.</div>
@@ -115,17 +115,21 @@ a{color:#086ab8}code{font-size:12px;background:#f5f8fc;padding:2px 5px}
 </section>
 
 <section class="panel" id="liveSection">
-<h2>5. Боевой режим — Старый Оскол</h2>
-<p>Предложенные новости → <b>новые отложенные записи</b> на 20 дней, время <b>10:00–20:00 МСК</b>. Используем существующий ключ <b>сообщества Старого Оскола</b>, без пользовательского токена.</p>
-<div class="warning"><b>Первый пакет проверен. Теперь можно отправить все оставшиеся подходящие записи одним запуском.</b> Сохраняем исходный отзыв, цены, названия и фото. Добавляем оформление рубрики и согласованное авторство; ИИ-редактор не подключён. Отправляем только записи с обычными фотографиями, принадлежащими Старому Осколу, либо без вложений. Неподдерживаемые вложения не публикуем с потерями. После ответа ВК необходимо проверить фотографии и время вручную.</div>
-<div id="livePreflight" class="status">Загрузи предложенные Старого Оскола и рассчитай расписание на 20 дней.</div>
+<h2 id="liveHeading">4. Публикация — выбери сообщество</h2>
+<p>Предложенные новости → <b>новые отложенные записи</b> на 20 дней, время <b>10:00–20:00 МСК</b>. Используем отдельный ключ выбранного сообщества, без передачи пользовательского токена.</p>
+<div class="warning">Сохраняем исходный отзыв и фото. Добавляем оформление рубрики и согласованное авторство. Только фотографии выбранного сообщества либо записи без вложений. Для нового филиала сначала проверяем до пяти записей. ИИ-корректура пока отключена.</div>
+<div id="livePreflight" class="status">Загрузи предложенные выбранного сообщества.</div>
+<label style="display:flex;gap:10px;align-items:flex-start;margin-top:14px">
+<input id="fullMode" type="checkbox" style="width:auto;margin-top:4px" disabled>
+<span>Первый пакет этого филиала уже проверен в ВК. Отправить все оставшиеся подходящие записи (до 200). Если галочка снята — до пяти.</span>
+</label>
 <label style="display:flex;gap:10px;align-items:flex-start;margin-top:14px">
 <input id="liveConsent" type="checkbox" style="width:auto;margin-top:4px">
-<span>Подтверждаю <b>боевую отправку всех оставшихся подходящих отложенных записей</b> Старого Оскола, с оформлением рубрики по предпросмотру, без изменения исходного отзыва и фото. Понимаю, что оригиналы останутся в «Предложенных», а после создания GitHub-заявки публикации могут быть запланированы автоматически.</span>
+<span>Подтверждаю <b id="liveConsentText">отправку выбранного пакета</b>, с оформлением рубрики по предпросмотру, без изменения исходного отзыва и фото. Понимаю, что оригиналы останутся в «Предложенных», а после создания GitHub-заявки публикации могут быть запланированы автоматически.</span>
 </label>
-<div class="actions"><button id="prepare" disabled>Подготовить все оставшиеся записи</button><a id="issueLink" class="button" href="#" target="_blank" rel="noopener noreferrer" style="display:none">Подтвердить боевой запуск в GitHub ↗</a></div>
+<div class="actions"><button id="prepare" disabled>Подготовить пакет</button><a id="issueLink" class="button" href="#" target="_blank" rel="noopener noreferrer" style="display:none">Подтвердить боевой запуск в GitHub ↗</a></div>
 <div id="submitStatus" class="status">Записей ВК пока не изменяли. Подготовка заявки сама ничего не публикует.</div>
-<p class="hint">На закрытой странице GitHub нажми <b>Create</b>, чтобы запустить все подходящие записи из свежего плана (до 200). История отправок сохраняется в GitHub до каждого запроса: при повторном запуске тот же исходный ID повторно не отправляется. При первой ошибке сервер остановится; исходные записи и уже созданные посты останутся на месте.</p>
+<p class="hint">На закрытой странице GitHub нажми <b>Create</b>, чтобы запустить согласованный пакет из свежего плана. История отправок сохраняется в GitHub до каждого запроса: при повторном запуске тот же исходный ID повторно не отправляется. При первой ошибке сервер остановится; исходные записи и уже созданные посты останутся на месте.</p>
 </section>
 
 <div class="footer">Планировщик отделён от парсера авторов и автопубликации историй. Не изменяет другие разделы приложения.</div>
@@ -144,7 +148,25 @@ const $=id=>document.getElementById(id);
  back.href=dest.href;
 })();
 let token=null,groupId=null,groupName='',suggests=[],postponed=[],plan=[],loading=false,loadedAt=0;
-let authorProfiles=new Map(),authorWarning='';
+let authorProfiles=new Map(),authorWarning='',currentBranch=null;
+const BRANCHES={"OSKOL":{"id":222561013,"name":"Суши Тайм — Старый Оскол","brand":"Суши Тайм","slug":"sushitime_so","order":"https://vk.ru/app51776635_-222561013","code":"OSKOL"},"KRD":{"id":225522023,"name":"Дело в роллах — Краснодар","brand":"Дело в роллах","slug":"delovrolls","order":"https://vk.ru/app51917005_-225522023","code":"KRD"},"VORONEZH":{"id":202333296,"name":"Суши Тайм — Воронеж","brand":"Суши Тайм","slug":"sushitime36","order":"https://vk.ru/app7785654_-202333296?ref=group_menu","code":"VORONEZH"}};
+const UGC_V2={"captions":["🧡 {brand} глазами клиентов","🍣 Ваши заказы — в нашей ленте!","📸 Делимся фотографиями наших подписчиков","🍱 Как выглядит ваш вечер с роллами?","😍 Роллы в кадре — делитесь и своими фото!","🧡 Спасибо, что делитесь с нами своими кадрами!","🍣 Рубрика «Ваши заказы»","📸 В объективе — ваши роллы","🍱 Что из этого выбрали бы вы?","🧡 {brand} глазами подписчиков","🍣 Время для любимых роллов","📸 Ваши фотографии — часть нашей истории","🍱 Кадр из вашей ленты","🍣 А какие роллы выбираете вы?","🧡 Делимся вашими фотографиями","📸 Рубрика «Роллы в кадре»","🍣 Ваши фото в нашей ленте","🍱 Какой ролл съели бы первым?","🧡 {brand} в кадре","📸 Спасибо за фотографии ваших заказов!","🍣 Ваши заказы в фотографиях","🍱 Сегодня делимся вашим кадром","🧡 Рубрика «Ваши фотографии»","📸 Кадр дня","🍣 Роллы глазами подписчиков","🍱 Ваши фотографии — наша любимая рубрика","🧡 Ещё один кадр от наших подписчиков","📸 Делитесь фотографиями своих заказов!","🍣 А что сегодня у вас на ужин?","🧡 Ваши кадры — в нашей ленте"],"review_captions":["🧡 Ваши отзывы","💬 Слово нашим клиентам","🍣 {brand} глазами клиентов","🧡 Спасибо, что делитесь обратной связью!","💬 Делимся вашим отзывом","🍱 Рубрика «Ваши отзывы»","🧡 Ваши впечатления","💬 Отзывы наших подписчиков","🍣 Ваши слова — в нашей ленте","🧡 Обратная связь от наших клиентов","💬 Что говорят наши подписчики","🍣 Делимся вашими впечатлениями"]};
+function selectedBranch(id,input){
+ const known=Object.values(BRANCHES).find(b=>b.id===id);
+ if(known)return known;
+ const slug=String(input||'').trim().replace(/^https?:\/\/(?:m\.)?vk\.(?:ru|com)\//i,'').split(/[?#/]/)[0].toLowerCase();
+ if(slug==='bambook_food')return {id,name:'Бамбук Фуд — Воронеж',brand:'Бамбук Фуд',order:'',code:null};
+ return null;
+}
+function batchRows(allowed){
+ return $('fullMode').checked?allowed:allowed.slice(0,5);
+}
+function refreshBranchHeading(){
+ $('liveHeading').textContent='4. Публикация — '+(currentBranch?.name||'выбери сообщество');
+ $('fullMode').disabled=!currentBranch?.code;
+ $('liveConsentText').textContent=($('fullMode').checked?'отправку всех подходящих записей ':'отправку до пяти записей ')+(currentBranch?.name||'выбранного сообщества');
+ $('prepare').textContent=$('fullMode').checked?'Подготовить все оставшиеся записи':'Подготовить пакет — до 5 записей';
+}
 const UGC={"captions":["🍣 Ваши заказы","📸 Кадр из вашей ленты","🧡 Суши Тайм глазами подписчиков","🍱 Что сегодня в кадре?","📸 Фото из предложенных","🍣 Делимся вашим фото","🧡 Рубрика «Ваши фотографии»","🍱 Роллы в кадре","📷 Фото от подписчиков","🍣 Время роллов","🧡 Ваши фото в нашей ленте","📸 Смотрим ваши фотографии","🍱 Сегодня в рубрике «Ваши заказы»","🍣 Кадр с роллами","📸 Из ваших предложенных новостей","🧡 Ваши кадры","🍣 Рубрика «Роллы в кадре»","📷 Фото для нашей ленты","🍱 Ваши заказы в фотографиях","🍣 Делимся кадром из предложенных","🧡 Суши Тайм в кадре","📸 Фотография из нашей рубрики","🍱 Сегодня делимся вашим кадром","🍣 Роллы глазами подписчиков","📷 Кадр дня","🧡 Рубрика «Суши Тайм глазами клиентов»","🍱 Ваши фотографии — в нашей ленте","🍣 Ещё один кадр из предложенных","📸 Ваши фото с роллами","🧡 Делимся фотографиями подписчиков"],"signatures":["📸 Автор записи: ","🧡 Запись от: ","📷 Фото и запись от: ","👤 Автор публикации: ","📸 Поделились с нами: ","🧡 Автор предложенной записи: "],"review":["не вкус","невкус","не свеж","несвеж","отрав","тошн","ужас","отврат","кошмар","разочар","претенз","жалоб","обман","груб","хам","опозд","не довез","не привез","не полож","верните","возврат","не рекоменд","не понрав","плох","волос","насеком","таракан","холодн","сырой","не доех","прогоркл","воня","просроч","плесен","не хват","не хватает","деньги назад","не совет","больше не","испорчен","недоволен","недоволь","позор","отстой","не работает","проблем","ошиб","задерж"],"ads":["реклама","промокод","розыгрыш","конкурс","скидка","акция","заработ","подписывай","партнерск","партнёрск","http://","https://","vk.com/","vk.ru/"],"cta":"🍣 Заказать роллы: https://vk.ru/app51776635_-222561013"};
 function editorialKind(p){
  const lower=String(p.text||'').toLowerCase().replace(/ё/g,'е');
@@ -182,14 +204,16 @@ async function loadAuthors(){
 function editorialText(p,index){
  const kind=editorialKind(p),original=String(p.text||''),photos=(p.attachments||[]).length;
  if(kind==='review'||kind==='ad')return original;
- const parts=[kind==='text'?original:UGC.captions[index%UGC.captions.length]];
+ const options=kind==='text'?UGC_V2.review_captions:UGC_V2.captions;
+ const parts=[options[index%options.length].replace('{brand}',currentBranch?.brand||'Наши роллы')];
+ if(kind==='text')parts.push(original);
  const author=getAuthor(p);
  if(author){
   let signature=UGC.signatures[index%UGC.signatures.length];
   if(!photos&&signature==='📷 Фото и запись от: ')signature='👤 Автор публикации: ';
   parts.push(signature+'[id'+author.id+'|'+author.name+']');
  }
- if(kind==='photo'&&index%5===4)parts.push(UGC.cta);
+ if(kind==='photo'&&index%5===4&&currentBranch?.order)parts.push('🍣 Заказать роллы: '+currentBranch.order);
  return parts.join('\n\n');
 }
 function moscowDate(now){
@@ -654,7 +678,7 @@ async function acquireToken(){
 checkEnvironment();
 window.addEventListener('load',checkEnvironment);
 function resetPlan(){
- plan=[];$('plannedCount').textContent='0';$('issueLink').style.display='none';
+ plan=[];$('liveConsent').checked=false;$('plannedCount').textContent='0';$('issueLink').style.display='none';
  $('prepare').disabled=true;status('submitStatus','Пока ничего не отправлено.');
 }
 function esc(text){
@@ -673,7 +697,7 @@ function render(){
    const link='https://vk.ru/wall-'+groupId+'_'+r.post.id;
    const index=indices.get(r.post.id),kind=editorialKind(r.post);
    const preview=index===undefined?(r.post.text||'(Запись без текста)'):editorialText(r.post,index);
-   const modeLabel=groupId!==222561013?'Исходный текст':kind==='review'?'⚠ Ручная проверка — не отправляем':index===undefined?'Не включена в пакет':kind==='ad'?'Исходный текст без подводки и подписи':'Будущий текст';
+   const modeLabel=!currentBranch?'Исходный текст':kind==='review'?'⚠ Ручная проверка — не отправляем':index===undefined?'Не включена в пакет':kind==='ad'?'Исходный текст без подводки и подписи':'Будущий текст';
    return '<div class="entry"><div class="entry-head"><span>'+esc(String(i+1)+'. '+r.atLabel)+'</span>'
      +'<span class="chip">'+esc('№'+r.post.id+' · вложений: '+a.length)+'</span></div>'
      +'<div class="hint">'+esc(modeLabel)+'</div><p>'+esc(preview)+'</p>'
@@ -749,17 +773,19 @@ async function loadWall(filter){
 }
 async function load(){
  if(loading)return;
- loading=true;loadedAt=0;resetPlan();suggests=[];postponed=[];authorProfiles=new Map();authorWarning='';$('authorConsent').checked=false;$('liveConsent').checked=false;render();
+ loading=true;loadedAt=0;groupId=null;currentBranch=null;resetPlan();suggests=[];postponed=[];authorProfiles=new Map();authorWarning='';$('authorConsent').checked=false;$('fullMode').checked=false;$('group').disabled=true;refreshBranchHeading();render();
  $('load').disabled=true;$('reload').disabled=true;$('calculate').disabled=true;
  status('loadStatus','Подключение началось…');
  try{
   if(!token)await acquireToken();
   groupId=await resolveGroup($('group').value);
-  groupName='Сообщество club'+groupId;
+  currentBranch=selectedBranch(groupId,$('group').value);
+  groupName=currentBranch?.name||'Сообщество club'+groupId;
+  $('fullMode').checked=currentBranch?.code==='OSKOL';refreshBranchHeading();
   suggests=await loadWall('suggests');
   postponed=await loadWall('postponed');
   loadedAt=Math.floor(Date.now()/1000);
-  if(groupId===222561013)await loadAuthors();
+  if(currentBranch)await loadAuthors();
   status('loadStatus','Подключено: '+groupName+'\nПредложенных: '+suggests.length+', уже отложенных: '+postponed.length+'.');
   $('calculate').disabled=!suggests.length;
   if(suggests.length)calculate();
@@ -767,7 +793,7 @@ async function load(){
   testChoices();
   updateLivePreflight();
  }catch(err){status('loadStatus','Ошибка: '+err.message);status('planStatus','Расписание не построено.');}
- finally{loading=false;$('load').disabled=false;$('reload').disabled=false;render();}
+ finally{loading=false;$('group').disabled=false;$('load').disabled=false;$('reload').disabled=false;updateLivePreflight();render();}
 }
 function calculate(){
  resetPlan();
@@ -812,20 +838,27 @@ function calculate(){
  }catch(err){status('planStatus','Ошибка планирования: '+err.message);plan=[];}
  render();
 }
+$('group').addEventListener('input',()=>{
+ if(loading)return;
+ loadedAt=0;groupId=null;currentBranch=null;suggests=[];postponed=[];authorProfiles=new Map();authorWarning='';
+ $('authorConsent').checked=false;$('fullMode').checked=false;$('calculate').disabled=true;resetPlan();updateLivePreflight();render();
+ status('loadStatus','Сообщество изменено. Загрузи предложенные заново.');
+ status('planStatus','Загрузи предложенные выбранного сообщества.');
+});
 $('load').addEventListener('click',load);
 $('reload').addEventListener('click',load);
 $('startDate').addEventListener('change',()=>{if(suggests.length)calculate();});
 $('calculate').addEventListener('click',calculate);
 function eligibleLivePosts(){
- if(groupId!==222561013)return {allowed:[],blocked:plan.length,duplicates:0,review:0};
+ if(!currentBranch||!groupId)return {allowed:[],blocked:plan.length,duplicates:0,review:0};
  const allowed=[];let blocked=0,duplicates=0,review=0;
  for(const entry of plan){
   const p=entry.post;
   const media=p.attachments||[];
-  const rightOwner=Number(p.owner_id)===-222561013;
+  const rightOwner=Number(p.owner_id)===-groupId;
   const suitable=Array.isArray(media)&&media.length<=10&&
      media.every(a=>a&&a.type==='photo'&&a.photo&&
-       Number(a.photo.owner_id)===-222561013&&Number.isSafeInteger(Number(a.photo.id))&&Number(a.photo.id)>0);
+       Number(a.photo.owner_id)===-groupId&&Number.isSafeInteger(Number(a.photo.id))&&Number(a.photo.id)>0);
   if(!rightOwner || !suitable || (typeof p.text!=='string') ||
        p.text.length>11700 || (!(p.text||'').trim() && !media.length)){
     blocked++;continue;
@@ -834,7 +867,7 @@ function eligibleLivePosts(){
   const duplicate=postponed.some(x=>
     JSON.stringify(photoSig(x))===JSON.stringify(photoSig(p)) &&
     ((p.attachments||[]).length>0||x.text===p.text||
-      (p.text.trim()&&String(x.text||'').startsWith(p.text+'\n\n'))));
+      (p.text.trim()&&('\n\n'+String(x.text||'')+'\n\n').includes('\n\n'+p.text+'\n\n'))));
   if(duplicate){duplicates++;continue;}
   allowed.push(entry);
  }
@@ -842,9 +875,10 @@ function eligibleLivePosts(){
 }
 function updateLivePreflight(){
  $('issueLink').style.display='none';
+ refreshBranchHeading();
  const consent=$('liveConsent').checked;
- if(groupId!==222561013){
-  status('livePreflight','Боевой режим пока разрешён только для Старого Оскола (club222561013). Выбери его в разделе 1.');
+ if(!currentBranch?.code){
+  status('livePreflight',currentBranch?'Для '+currentBranch.name+' доступен предпросмотр. Боевой режим ждёт подтверждения ID и отдельной настройки ключа.':'Выбери сообщество и загрузи его записи.');
   $('prepare').disabled=true;return;
  }
  if(!plan.length){
@@ -857,12 +891,13 @@ function updateLivePreflight(){
    '\nНеподдерживаемые вложения/источники: '+blocked+
    '\nНа ручную проверку (по словам/признакам): '+review+
    '\nВозможно уже отложены (совпадение фотографий или текста без фото): '+duplicates+
-   '\nБудет подписано авторов: '+allowed.filter(r=>getAuthor(r.post)).length+
+   '\nВ текущем пакете: '+batchRows(allowed).length+' · авторских подписей: '+batchRows(allowed).filter(r=>getAuthor(r.post)).length+
    (authorWarning?'\n'+authorWarning:'')+
-   '\nСервер отправит все подходящие ещё не обработанные ID (до 200), остановится при первой ошибке. Оригиналы останутся в «Предложенных».');
+   '\nСервер проверит отдельный журнал '+currentBranch.name+' и остановится при первой ошибке. Оригиналы останутся в «Предложенных».');
  $('prepare').disabled=!consent||!allowed.length;
 }
 $('liveConsent').addEventListener('change',updateLivePreflight);
+$('fullMode').addEventListener('change',()=>{$('liveConsent').checked=false;updateLivePreflight();render();});
 $('authorConsent').addEventListener('change',()=>{$('liveConsent').checked=false;updateLivePreflight();render();});
 function bytesBase64(bytes){
  let out='';
@@ -880,16 +915,17 @@ async function makeIssuePayload(items){
  return bytesBase64(compressed);
 }
 $('prepare').addEventListener('click',async()=>{
- if(!$('liveConsent').checked||groupId!==222561013||!plan.length)return;
+ if(!$('liveConsent').checked||!currentBranch?.code||!plan.length)return;
+ const branch=currentBranch,sourceTime=loadedAt,full=$('fullMode').checked;
  $('prepare').disabled=true;$('issueLink').style.display='none';
  try{
   const {allowed,blocked,duplicates,review}=eligibleLivePosts();
   if(!allowed.length)throw Error('Не осталось подходящих записей с сохраняемыми оригинальными фото.');
-  if(allowed.length>200)throw Error('Более 200 записей: требуется разделить объём.');
+  if(full&&allowed.length>200)throw Error('Более 200 записей: требуется разделить объём.');
   const now=Math.floor(Date.now()/1000);
   if(!loadedAt||now-loadedAt>15*60)throw Error('Список устарел. Нажми «Обновить список» и повтори подготовку.');
   // One approved snapshot from the mini-app; no VK token or photo URLs in the Issue.
-  const all=allowed.map(row=>{
+  const all=batchRows(allowed).map(row=>{
    const p=row.post;
    const author=getAuthor(p);
    return {
@@ -902,15 +938,16 @@ $('prepare').addEventListener('click',async()=>{
     }))
    };
   });
-  const snapshot={kind:'rolls-live-oskol-v1',mode:'all_remaining',editorial:'ugc_v1',author_consent:$('authorConsent').checked,group_id:222561013,
+  const snapshot={kind:'rolls-live-v2',branch:branch.code,...(full?{mode:'all_remaining'}:{}),editorial:'ugc_v2',author_consent:$('authorConsent').checked,group_id:branch.id,
    days:20,start_hour:10,end_hour:20,start_date:$('startDate').value,
    captured_at:loadedAt,preview_count:all.length,posts:all};
   status('submitStatus','Упаковываем '+all.length+' записей в закрытую заявку GitHub. Токены и URL фотографий не передаём…');
   const zipped=await makeIssuePayload(snapshot);
   if(zipped.length>47000)throw Error('Данные слишком большие для одной заявки. Нужно уменьшить объём партии.');
-  const title='[ROLLS LIVE OSKOL] ALL 20 дней · '+snapshot.start_date+' · '+all.length+' записей';
-  const body='БОЕВОЙ ЗАПУСК. Разрешена отправка ВСЕХ оставшихся подходящих отложенных записей Старого Оскола (до 200).\n'+
-    'Оформление UGC v1 по предпросмотру без изменения исходного отзыва. Фотографии исходные. '+
+  if(currentBranch!==branch||loadedAt!==sourceTime||!$('liveConsent').checked||$('fullMode').checked!==full)throw Error('Настройки изменились. Подготовь пакет заново.');
+  const title='[ROLLS LIVE '+branch.code+'] '+(full?'ALL ':'')+'20 дней · '+snapshot.start_date+' · '+all.length+' записей';
+  const body='БОЕВОЙ ЗАПУСК. '+branch.name+' (club'+branch.id+'). Разрешена отправка '+(full?'всех подходящих (до 200)':'до пяти')+' записей.\n'+
+    'Оформление UGC v2 по предпросмотру без изменения исходного отзыва. Фотографии исходные. '+
     'Оригинальные предложенные записи остаются на месте.\n'+
     'Полный снимок: '+all.length+' записей; исключено по неподдерживаемым вложениям: '+blocked+
     ', потенциальных дублей: '+duplicates+', ручная проверка: '+review+'.\n'+
@@ -921,7 +958,7 @@ $('prepare').addEventListener('click',async()=>{
   if(url.length>60000)throw Error('Слишком длинный адрес заявки: пакет требует разделения.');
   $('issueLink').href=url;$('issueLink').style.display='inline-block';
   status('submitStatus','Боевой пакет сформирован: '+all.length+' подходящих записей на 20 дней.\n'+
-    'Будут обработаны все подходящие записи, которых ещё нет в журнале. Нажми «Подтвердить боевой запуск в GitHub», затем Create.\n'+
+    'Будут обработаны записи пакета, которых ещё нет в журнале этого филиала. Нажми «Подтвердить боевой запуск в GitHub», затем Create.\n'+
     'После этого сервер может сразу создать отложенные публикации. '+
     'При ошибке автоматически повторяться они не будут.');
  }catch(e){
@@ -930,7 +967,7 @@ $('prepare').addEventListener('click',async()=>{
 });
 function updateLivePreflightButtonOnly(){
  const allowed=eligibleLivePosts().allowed;
- $('prepare').disabled=!$('liveConsent').checked||groupId!==222561013||!allowed.length;
+ $('prepare').disabled=!$('liveConsent').checked||!currentBranch?.code||!allowed.length;
 }
 })();
 </script></body></html>
