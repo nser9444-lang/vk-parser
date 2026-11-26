@@ -1,0 +1,55 @@
+name: "ITALIAN SUNRISE — inspect target 42876719 read only"
+on:
+  issues:
+    types: [opened]
+permissions:
+  contents: read
+  issues: write
+jobs:
+  inspect:
+    if: >-
+      github.actor == 'nser9444-lang' &&
+      github.event.issue.user.login == 'nser9444-lang' &&
+      startsWith(github.event.issue.title, '[ITALIAN TARGET PLAN INSPECT]')
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    env:
+      VK_ADS_ACCESS_TOKEN: ${{ secrets.VK_ADS_TOKEN_ITALIAN_SUNRISE }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: python -m pip install -r vk_ads_bridge/requirements.txt
+      - name: Read only campaign and group budget configuration
+        run: |
+          python - <<'PY'
+          import json
+          import time
+          from vk_ads_bridge.cli import VKAds
+          api=VKAds()
+          campaign_id=42876719
+          plan=api.request("GET",f"/api/v2/ad_plans/{campaign_id}.json",params={"fields":"id,status"})
+          assert plan.get("id")==campaign_id,"Target plan inaccessible"
+          print("TARGET_CAMPAIGN",json.dumps(plan,ensure_ascii=False))
+          data=api.request("GET","/api/v2/ad_groups.json",params={
+              "_ad_plan_id__in":str(campaign_id),"limit":50,"offset":0,
+              "fields":"id,name,ad_plan_id,status,package_id"})
+          items=data.get("items") or []
+          result={"target_campaign":campaign_id,"group_count_first_page":len(items),"group_samples":[]}
+          for g in items[:10]:
+              if g.get("ad_plan_id")!=campaign_id:continue
+              time.sleep(1.8)
+              full=api.request("GET",f"/api/v2/ad_groups/{g['id']}.json",params={
+                  "fields":"id,name,status,ad_plan_id,package_id,targetings,age_restrictions,autobidding_mode,budget_limit,budget_limit_day,max_price,price,objective,enable_utm,priced_goal"})
+              # No customer names, targeting, budgets or private copy are printed
+              result["group_samples"].append({
+                  "id":full.get("id"),"status":full.get("status"),"package_id":full.get("package_id"),
+                  "objective_present":full.get("objective") is not None,
+                  "group_daily_budget_present":full.get("budget_limit_day") is not None,
+                  "group_total_budget_present":full.get("budget_limit") is not None,
+                  "budget_model":full.get("autobidding_mode"),
+                  "has_targetings":bool(full.get("targetings"))
+              })
+          print("TARGET_STRUCTURE",json.dumps(result,ensure_ascii=False))
+          PY
