@@ -161,7 +161,7 @@ def create_specs(mapping,text_override):
             text=text_override.strip()
         if not text or len(text)>2000:
             raise RuntimeError(f"{idx}: invalid ad copy")
-        if "«+»" not in text and '"+\"+"' not in text and "« + »" not in text:
+        if "«+»" not in text and "« + »" not in text:
             raise RuntimeError(f"{idx}: missing plus CTA")
         manifest=json.loads((folder/"manifest.json").read_text(encoding="utf-8"))
         title=manifest.get("image_headline") or manifest.get("title") or manifest.get("concept_name") or \
