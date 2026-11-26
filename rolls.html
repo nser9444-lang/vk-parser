@@ -132,6 +132,8 @@ a{color:#086ab8}code{font-size:12px;background:#f5f8fc;padding:2px 5px}
 <span>Подтверждаю <b id="liveConsentText">отправку выбранного пакета</b>, с оформлением рубрики по предпросмотру, без изменения исходного отзыва и фото. Понимаю, что оригиналы сохраняются, если не включена и не прошла точная проверка очистки. После создания GitHub-заявки публикации могут быть запланированы автоматически.</span>
 </label>
 <div class="actions"><button id="prepare" disabled>Подготовить пакет</button><a id="issueLink" class="button" href="#" target="_blank" rel="noopener noreferrer" style="display:none">Подтвердить боевой запуск в GitHub ↗</a></div>
+<div class="actions"><button id="cleanupExisting" disabled>Проверить и очистить уже перенесённые</button></div>
+<p class="hint">Отдельная очистка использует только пары ID из журнала выбранного филиала. Она не создаёт новые посты и не удаляет записи, которые не удалось точно проверить.</p>
 <div id="submitStatus" class="status">Записей ВК пока не изменяли. Подготовка заявки сама ничего не публикует.</div>
 <p class="hint">На закрытой странице GitHub нажми <b>Create</b>, чтобы запустить согласованный пакет из свежего плана. История отправок сохраняется в GitHub до каждого запроса: при повторном запуске тот же исходный ID повторно не отправляется. При коде 100 запись пропускается, остальные продолжаются. При неопределённом результате или другой ошибке сервер остановится.</p>
 </section>
@@ -169,6 +171,7 @@ function refreshBranchHeading(){
  $('liveHeading').textContent='4. Публикация — '+(currentBranch?.name||'выбери сообщество');
  $('fullMode').disabled=!currentBranch?.code;
  $('cleanupAfter').disabled=!currentBranch?.code;
+ $('cleanupExisting').disabled=!currentBranch?.code||!loadedAt||loading;
  $('liveConsentText').textContent=($('fullMode').checked?'отправку всех подходящих записей ':'отправку до пяти записей ')+(currentBranch?.name||'выбранного сообщества');
  $('prepare').textContent=$('fullMode').checked?'Подготовить все оставшиеся записи':'Подготовить пакет — до 5 записей';
 }
@@ -904,6 +907,14 @@ function updateLivePreflight(){
 $('liveConsent').addEventListener('change',updateLivePreflight);
 $('fullMode').addEventListener('change',()=>{$('liveConsent').checked=false;updateLivePreflight();render();});
 $('cleanupAfter').addEventListener('change',()=>{$('liveConsent').checked=false;updateLivePreflight();});
+$('cleanupExisting').addEventListener('click',()=>{
+ const b=currentBranch;
+ if(!b?.code||!loadedAt||loading)return;
+ if(!confirm('Проверить и удалить только точно подтверждённые исходные предложенные записи: '+b.name+'? Новые посты не создаются. Непроверенные записи сохраняются.'))return;
+ const url='https://github.com/nser9444-lang/vk-parser-data/issues/new?title='+encodeURIComponent('[ROLLS LIVE '+b.code+'] CLEANUP VERIFIED')+'&body='+encodeURIComponent('CONFIRM_DELETE_VERIFIED_ORIGINALS');
+ $('issueLink').href=url;$('issueLink').style.display='inline-block';
+ status('submitStatus','Подготовлена отдельная заявка очистки '+b.name+'. Нажми ссылку GitHub и Create. При отсутствии доступа к чтению ВК оригиналы не удаляются.');
+});
 $('authorConsent').addEventListener('change',()=>{$('liveConsent').checked=false;updateLivePreflight();render();});
 function bytesBase64(bytes){
  let out='';
