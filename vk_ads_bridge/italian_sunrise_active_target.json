@@ -1,0 +1,29 @@
+{
+  "project": "ITALIAN SUNRISE",
+  "active_vk_ads_campaign_id": 42876719,
+  "effective_from": "2026-11-26",
+  "target_group_template_id": 169616554,
+  "goal": "messages",
+  "package_id": 3127,
+  "budget_management_level": "ad_group",
+  "budget_field": "budget_limit_day",
+  "budget_handling": "Copy existing daily group-budget setting from the target campaign template; do not invent or alter a numeric budget.",
+  "new_group_status": "blocked",
+  "new_banner_status": "blocked",
+  "new_group_naming": "Include actual creation date in DD.MM.YYYY. On 2026-11-26 use 26.11.2026.",
+  "media_roles": [
+    "image_600x600",
+    "image_4_5",
+    "image_1080x607",
+    "image_607x1080"
+  ],
+  "icon_role": "icon_256x256",
+  "no_carousel": true,
+  "source_creative_preservation": "Use archived original garment photographs, not generated or modified product",
+  "copy_from_prior_campaign": false,
+  "prior_campaign_id": 42378407,
+  "prior_campaign_instruction": "Do not alter existing ads/groups; old campaign is legacy, not upload default.",
+  "preflight": "Verify target campaign/group status, package, daily group budget and legal advertiser text",
+  "postflight": "GET each new group and banner; verify 4 main image IDs, blocked status, correct target campaign and copied budget",
+  "release_policy": "Only user can approve activating ads after price, stock and moderation checks"
+}
