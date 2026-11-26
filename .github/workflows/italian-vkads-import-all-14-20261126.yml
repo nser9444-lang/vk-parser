@@ -1,0 +1,67 @@
+name: "ITALIAN SUNRISE — загрузить 14 связок по 4 формата, остановленные"
+on:
+  issues:
+    types: [opened]
+
+permissions:
+  contents: read
+  issues: write
+
+concurrency:
+  group: vkads-italian-sunrise-campaign-42378407
+  cancel-in-progress: false
+
+jobs:
+  upload:
+    if: >-
+      github.actor == 'nser9444-lang' &&
+      github.event.issue.user.login == 'nser9444-lang' &&
+      github.event.issue.title == '[ITALIAN IMPORT 14] Загрузить готовые связки 002-015 остановленными'
+    runs-on: ubuntu-latest
+    timeout-minutes: 55
+    env:
+      CREATIVE_ARCHIVES_JSON: ${{ github.event.issue.body }}
+      VK_ADS_ACCESS_TOKEN: ${{ secrets.VK_ADS_TOKEN_ITALIAN_SUNRISE }}
+      VK_ADS_ALLOW_CREATE: "1"
+      VK_ADS_BATCH_CONFIRM: "CREATE_14_BLOCKED_ADS"
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install dependencies and verify API schema integration tests
+        run: |
+          python -m pip install -r vk_ads_bridge/requirements.txt
+          python -m unittest discover -s vk_ads_bridge/tests -v
+          python -m py_compile vk_ads_bridge/import_all_italian_creatives_20261126.py
+
+      - name: Import all genuine creative formats as BLOCKED ads and verify saved roles
+        run: python -m vk_ads_bridge.import_all_italian_creatives_20261126 --apply
+
+      - name: Upload detailed safe receipts (even if a group failed)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: italian-sunrise-14-paused-ads-upload-results
+          path: |
+            vkads-import-20261126/upload-report.json
+            vkads-import-20261126/receipts/
+          if-no-files-found: warn
+          retention-days: 30
+
+      - name: State outcome on issue without disclosing signed archive URLs
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ISSUE_NUMBER: ${{ github.event.issue.number }}
+          JOB_STATUS: ${{ job.status }}
+        shell: bash
+        run: |
+          if [ "$JOB_STATUS" = "success" ]; then
+            gh issue comment "$ISSUE_NUMBER" --body "Загрузка 14 связок №2–15 завершилась. Для каждого создано одно ОСТАНОВЛЕННОЕ объявление, четыре главных изображения + иконка проверены через VK Ads API. Подробный отчёт — в артефакте этого запуска. Показы НЕ включены."
+          else
+            gh issue comment "$ISSUE_NUMBER" --body "Загрузка остановлена из-за ошибки. Возможна частичная загрузка: не перезапускайте без проверки отчёта vkads-import-20261126/upload-report.json и кабинета. Показы НЕ включались."
+          fi
