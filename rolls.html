@@ -124,12 +124,16 @@ a{color:#086ab8}code{font-size:12px;background:#f5f8fc;padding:2px 5px}
 <span>Первый пакет этого филиала уже проверен в ВК. Отправить все оставшиеся подходящие записи (до 200). Если галочка снята — до пяти.</span>
 </label>
 <label style="display:flex;gap:10px;align-items:flex-start;margin-top:14px">
+<input id="cleanupAfter" type="checkbox" style="width:auto;margin-top:4px" disabled>
+<span>Удалять исходную предложенную запись только после точной серверной проверки отложенной копии и оригинала. Если ВК не даёт прочитать записи, оригиналы сохраняются.</span>
+</label>
+<label style="display:flex;gap:10px;align-items:flex-start;margin-top:14px">
 <input id="liveConsent" type="checkbox" style="width:auto;margin-top:4px">
-<span>Подтверждаю <b id="liveConsentText">отправку выбранного пакета</b>, с оформлением рубрики по предпросмотру, без изменения исходного отзыва и фото. Понимаю, что оригиналы останутся в «Предложенных», а после создания GitHub-заявки публикации могут быть запланированы автоматически.</span>
+<span>Подтверждаю <b id="liveConsentText">отправку выбранного пакета</b>, с оформлением рубрики по предпросмотру, без изменения исходного отзыва и фото. Понимаю, что оригиналы сохраняются, если не включена и не прошла точная проверка очистки. После создания GitHub-заявки публикации могут быть запланированы автоматически.</span>
 </label>
 <div class="actions"><button id="prepare" disabled>Подготовить пакет</button><a id="issueLink" class="button" href="#" target="_blank" rel="noopener noreferrer" style="display:none">Подтвердить боевой запуск в GitHub ↗</a></div>
 <div id="submitStatus" class="status">Записей ВК пока не изменяли. Подготовка заявки сама ничего не публикует.</div>
-<p class="hint">На закрытой странице GitHub нажми <b>Create</b>, чтобы запустить согласованный пакет из свежего плана. История отправок сохраняется в GitHub до каждого запроса: при повторном запуске тот же исходный ID повторно не отправляется. При первой ошибке сервер остановится; исходные записи и уже созданные посты останутся на месте.</p>
+<p class="hint">На закрытой странице GitHub нажми <b>Create</b>, чтобы запустить согласованный пакет из свежего плана. История отправок сохраняется в GitHub до каждого запроса: при повторном запуске тот же исходный ID повторно не отправляется. При коде 100 запись пропускается, остальные продолжаются. При неопределённом результате или другой ошибке сервер остановится.</p>
 </section>
 
 <div class="footer">Планировщик отделён от парсера авторов и автопубликации историй. Не изменяет другие разделы приложения.</div>
@@ -164,6 +168,7 @@ function batchRows(allowed){
 function refreshBranchHeading(){
  $('liveHeading').textContent='4. Публикация — '+(currentBranch?.name||'выбери сообщество');
  $('fullMode').disabled=!currentBranch?.code;
+ $('cleanupAfter').disabled=!currentBranch?.code;
  $('liveConsentText').textContent=($('fullMode').checked?'отправку всех подходящих записей ':'отправку до пяти записей ')+(currentBranch?.name||'выбранного сообщества');
  $('prepare').textContent=$('fullMode').checked?'Подготовить все оставшиеся записи':'Подготовить пакет — до 5 записей';
 }
@@ -773,7 +778,7 @@ async function loadWall(filter){
 }
 async function load(){
  if(loading)return;
- loading=true;loadedAt=0;groupId=null;currentBranch=null;resetPlan();suggests=[];postponed=[];authorProfiles=new Map();authorWarning='';$('authorConsent').checked=false;$('fullMode').checked=false;$('group').disabled=true;refreshBranchHeading();render();
+ loading=true;loadedAt=0;groupId=null;currentBranch=null;resetPlan();suggests=[];postponed=[];authorProfiles=new Map();authorWarning='';$('authorConsent').checked=false;$('fullMode').checked=false;$('cleanupAfter').checked=false;$('group').disabled=true;refreshBranchHeading();render();
  $('load').disabled=true;$('reload').disabled=true;$('calculate').disabled=true;
  status('loadStatus','Подключение началось…');
  try{
@@ -841,7 +846,7 @@ function calculate(){
 $('group').addEventListener('input',()=>{
  if(loading)return;
  loadedAt=0;groupId=null;currentBranch=null;suggests=[];postponed=[];authorProfiles=new Map();authorWarning='';
- $('authorConsent').checked=false;$('fullMode').checked=false;$('calculate').disabled=true;resetPlan();updateLivePreflight();render();
+ $('authorConsent').checked=false;$('fullMode').checked=false;$('cleanupAfter').checked=false;$('calculate').disabled=true;resetPlan();updateLivePreflight();render();
  status('loadStatus','Сообщество изменено. Загрузи предложенные заново.');
  status('planStatus','Загрузи предложенные выбранного сообщества.');
 });
@@ -893,11 +898,12 @@ function updateLivePreflight(){
    '\nВозможно уже отложены (совпадение фотографий или текста без фото): '+duplicates+
    '\nВ текущем пакете: '+batchRows(allowed).length+' · авторских подписей: '+batchRows(allowed).filter(r=>getAuthor(r.post)).length+
    (authorWarning?'\n'+authorWarning:'')+
-   '\nСервер проверит отдельный журнал '+currentBranch.name+' и остановится при первой ошибке. Оригиналы останутся в «Предложенных».');
+   '\nСервер проверит отдельный журнал '+currentBranch.name+'. Код 100 пропускается; неопределённый результат останавливает пакет.'+($('cleanupAfter').checked?'\nОчистка только после точной проверки.':'\nОригиналы сохраняются.'));
  $('prepare').disabled=!consent||!allowed.length;
 }
 $('liveConsent').addEventListener('change',updateLivePreflight);
 $('fullMode').addEventListener('change',()=>{$('liveConsent').checked=false;updateLivePreflight();render();});
+$('cleanupAfter').addEventListener('change',()=>{$('liveConsent').checked=false;updateLivePreflight();});
 $('authorConsent').addEventListener('change',()=>{$('liveConsent').checked=false;updateLivePreflight();render();});
 function bytesBase64(bytes){
  let out='';
@@ -916,7 +922,7 @@ async function makeIssuePayload(items){
 }
 $('prepare').addEventListener('click',async()=>{
  if(!$('liveConsent').checked||!currentBranch?.code||!plan.length)return;
- const branch=currentBranch,sourceTime=loadedAt,full=$('fullMode').checked;
+ const branch=currentBranch,sourceTime=loadedAt,full=$('fullMode').checked,cleanup=$('cleanupAfter').checked;
  $('prepare').disabled=true;$('issueLink').style.display='none';
  try{
   const {allowed,blocked,duplicates,review}=eligibleLivePosts();
@@ -938,20 +944,20 @@ $('prepare').addEventListener('click',async()=>{
     }))
    };
   });
-  const snapshot={kind:'rolls-live-v2',branch:branch.code,...(full?{mode:'all_remaining'}:{}),editorial:'ugc_v2',author_consent:$('authorConsent').checked,group_id:branch.id,
+  const snapshot={kind:'rolls-live-v2',branch:branch.code,...(full?{mode:'all_remaining'}:{}),editorial:'ugc_v2',cleanup_after:cleanup,author_consent:$('authorConsent').checked,group_id:branch.id,
    days:20,start_hour:10,end_hour:20,start_date:$('startDate').value,
    captured_at:loadedAt,preview_count:all.length,posts:all};
   status('submitStatus','Упаковываем '+all.length+' записей в закрытую заявку GitHub. Токены и URL фотографий не передаём…');
   const zipped=await makeIssuePayload(snapshot);
   if(zipped.length>47000)throw Error('Данные слишком большие для одной заявки. Нужно уменьшить объём партии.');
-  if(currentBranch!==branch||loadedAt!==sourceTime||!$('liveConsent').checked||$('fullMode').checked!==full)throw Error('Настройки изменились. Подготовь пакет заново.');
+  if(currentBranch!==branch||loadedAt!==sourceTime||!$('liveConsent').checked||$('fullMode').checked!==full||$('cleanupAfter').checked!==cleanup)throw Error('Настройки изменились. Подготовь пакет заново.');
   const title='[ROLLS LIVE '+branch.code+'] '+(full?'ALL ':'')+'20 дней · '+snapshot.start_date+' · '+all.length+' записей';
   const body='БОЕВОЙ ЗАПУСК. '+branch.name+' (club'+branch.id+'). Разрешена отправка '+(full?'всех подходящих (до 200)':'до пяти')+' записей.\n'+
     'Оформление UGC v2 по предпросмотру без изменения исходного отзыва. Фотографии исходные. '+
-    'Оригинальные предложенные записи остаются на месте.\n'+
+    (cleanup?'Удалять только точно проверенные оригиналы.\n':'Оригинальные предложенные записи остаются на месте.\n')+
     'Полный снимок: '+all.length+' записей; исключено по неподдерживаемым вложениям: '+blocked+
     ', потенциальных дублей: '+duplicates+', ручная проверка: '+review+'.\n'+
-    'Запуск только после Create в GitHub. При первой ошибке остановка без автоматического повтора.\n\n'+
+    'Запуск только после Create в GitHub. Код 100 пропускается, неопределённый результат останавливает пакет.\n\n'+
     'vk-rolls-live-gzip:'+zipped;
   const url='https://github.com/nser9444-lang/vk-parser-data/issues/new?title='+
       encodeURIComponent(title)+'&body='+encodeURIComponent(body);
