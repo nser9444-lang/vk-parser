@@ -131,7 +131,8 @@ a{color:#086ab8}code{font-size:12px;background:#f5f8fc;padding:2px 5px}
 <input id="liveConsent" type="checkbox" style="width:auto;margin-top:4px">
 <span>Подтверждаю <b id="liveConsentText">отправку выбранного пакета</b>, с оформлением рубрики по предпросмотру, без изменения исходного отзыва и фото. Понимаю, что при публикации оригиналы сохраняются. После создания GitHub-заявки публикации могут быть запланированы автоматически.</span>
 </label>
-<div class="actions"><button id="prepare" disabled>Подготовить пакет</button></div>
+<div class="actions"><button id="prepare" disabled>Подготовить пакет</button><button id="directTest" disabled style="display:none">Тест: перенести одну запись без копии</button></div>
+<p id="directHint" class="hint" style="display:none">Только Бамбук: сервер выберет одну ещё не отправлявшуюся запись из свежего плана и передаст её ID и будущую дату в wall.post. Нет запасного копирования и удаления. После теста проверь предложенные, отложенные и стену.</p>
 <div id="issueTransfer" style="display:none">
  <p class="hint">Скопируй содержимое заявки, открой закрытый GitHub, вставь его в поле описания (Body / Add a description), затем нажми Create. Заголовок должен заполниться автоматически.</p>
  <label for="issueTitle">Заголовок заявки (если GitHub не заполнил его)</label>
@@ -728,7 +729,7 @@ $('issueLink').addEventListener('click',event=>{
 $('issueTitle').addEventListener('click',()=>{$('issueTitle').select();});
 function resetPlan(){
  plan=[];$('liveConsent').checked=false;$('plannedCount').textContent='0';clearIssueTransfer();
- $('prepare').disabled=true;status('submitStatus','Пока ничего не отправлено.');
+ $('prepare').disabled=true;$('directTest').disabled=true;status('submitStatus','Пока ничего не отправлено.');
 }
 function esc(text){
  const s=document.createElement('span');s.textContent=String(text??'');return s.innerHTML;
@@ -926,6 +927,8 @@ function updateLivePreflight(){
  clearIssueTransfer();
  refreshBranchHeading();
  const consent=$('liveConsent').checked;
+ const bambook=currentBranch?.code==='BAMBOOK';
+ $('directTest').style.display=bambook?'inline-block':'none';$('directHint').style.display=bambook?'block':'none';$('directTest').disabled=true;
  if(loading){$('prepare').disabled=true;return;}
  if(!currentBranch?.code){
   status('livePreflight',currentBranch?'Для '+currentBranch.name+' доступен предпросмотр. Боевой режим ждёт подтверждения ID и отдельной настройки ключа.':'Выбери сообщество и загрузи его записи.');
@@ -946,6 +949,7 @@ function updateLivePreflight(){
    (authorWarning?'\n'+authorWarning:'')+
    '\nСервер проверит отдельный журнал '+currentBranch.name+'. Код 100 пропускается; неопределённый результат останавливает пакет.'+($('cleanupAfter').checked?'\nОчистка только после точной проверки.':'\nОригиналы сохраняются.'));
  $('prepare').disabled=!consent||!allowed.length;
+ $('directTest').disabled=!bambook||!consent||!allowed.length;
 }
 $('liveConsent').addEventListener('change',updateLivePreflight);
 $('fullMode').addEventListener('change',()=>{$('liveConsent').checked=false;updateLivePreflight();render();});
@@ -1065,17 +1069,18 @@ async function fitPublicationBatch(items,encode){
  }
  throw Error('Даже одна запись превышает допустимый размер заявки. Нужна ручная проверка.');
 }
-$('prepare').addEventListener('click',async()=>{
+async function preparePublication(direct=false){
  if(loading||!$('liveConsent').checked||!currentBranch?.code||!plan.length)return;
  const branch=currentBranch,sourceTime=loadedAt,full=$('fullMode').checked,cleanup=$('cleanupAfter').checked;
- $('prepare').disabled=true;clearIssueTransfer();
+ if(direct&&(branch.code!=='BAMBOOK'||cleanup||!confirm('Бамбук: сделать ОДНУ попытку прямого переноса ранее не отправленной записи на будущую дату? Создания копии запасным способом и удаления не будет. Результат нужно проверить в ВК.')))return;
+ $('prepare').disabled=true;$('directTest').disabled=true;clearIssueTransfer();
  try{
   const {allowed,blocked,duplicates,review}=eligibleLivePosts();
   if(!allowed.length)throw Error('Не осталось подходящих записей с сохраняемыми оригинальными фото.');
   const now=Math.floor(Date.now()/1000);
   if(!loadedAt||now-loadedAt>15*60)throw Error('Список устарел. Нажми «Обновить список» и повтори подготовку.');
   // One approved snapshot from the mini-app; no VK token or photo URLs in the Issue.
-  const all=batchRows(allowed).map(row=>{
+  const all=(direct?allowed.slice(0,FULL_BATCH_MAX):batchRows(allowed)).map(row=>{
    const p=row.post;
    const author=getAuthor(p);
    return {
@@ -1088,7 +1093,7 @@ $('prepare').addEventListener('click',async()=>{
     }))
    };
   });
-  const base={kind:'rolls-live-v2',branch:branch.code,...(full?{mode:'all_remaining'}:{}),editorial:'ugc_v2',cleanup_after:cleanup,author_consent:$('authorConsent').checked,group_id:branch.id,
+  const base={kind:'rolls-live-v2',branch:branch.code,...(direct?{mode:'direct_test'}:full?{mode:'all_remaining'}:{}),editorial:'ugc_v2',cleanup_after:cleanup,author_consent:$('authorConsent').checked,group_id:branch.id,
    days:20,start_hour:10,end_hour:20,start_date:$('startDate').value,captured_at:loadedAt};
   status('submitStatus','Подбираем размер партии из '+allowed.length+' подходящих записей…');
   const prepared=await fitPublicationBatch(all,async posts=>{
@@ -1096,8 +1101,8 @@ $('prepare').addEventListener('click',async()=>{
    if(new TextEncoder().encode(JSON.stringify(snapshot)).length>220000)return null;
    const zipped=await makeIssuePayload(snapshot);
    if(zipped.length>47000)return null;
-   const title='[ROLLS LIVE '+branch.code+'] '+(full?'ALL ':'')+'20 дней · '+snapshot.start_date+' · '+posts.length+' записей';
-   const body='БОЕВОЙ ЗАПУСК. '+branch.name+' (club'+branch.id+'). Разрешена отправка '+(full?'очередной партии (до 200)':'до пяти')+' записей.\n'+
+   const title='[ROLLS LIVE '+branch.code+'] '+(direct?'DIRECT TEST ':full?'ALL ':'')+'20 дней · '+snapshot.start_date+' · '+(direct?'1 попытка':posts.length+' записей');
+   const body=direct?'ПРЯМОЙ ТЕСТ Бамбук. Ровно одна попытка по одному новому ID из '+posts.length+' кандидатов. Дата будущая. Без копирования запасным способом и удаления.\n\nvk-rolls-live-gzip:'+zipped:'БОЕВОЙ ЗАПУСК. '+branch.name+' (club'+branch.id+'). Разрешена отправка '+(full?'очередной партии (до 200)':'до пяти')+' записей.\n'+
     'Оформление UGC v2 по предпросмотру без изменения исходного отзыва. Фотографии исходные. '+
     (cleanup?'Удалять только точно проверенные оригиналы.\n':'Оригинальные предложенные записи остаются на месте.\n')+
     'Снимок партии: '+posts.length+' записей; вне этой партии: '+(allowed.length-posts.length)+
@@ -1111,7 +1116,7 @@ $('prepare').addEventListener('click',async()=>{
   preparedIssue={branch,sourceTime,full,authorConsent:base.author_consent,startDate:base.start_date};
   $('issueTitle').value=prepared.title;$('issueBody').value=prepared.body;
   $('issueLink').href=prepared.url;$('issueTransfer').style.display='block';
-  status('submitStatus','Партия сформирована: '+prepared.count+' из '+allowed.length+' подходящих записей на 20 дней.\n'+
+  status('submitStatus',direct?'ПРЯМОЙ ТЕСТ: одна попытка из '+prepared.count+' кандидатов. Скопируй содержимое, открой GitHub, вставь описание и нажми Create. Дождись отчёта, проверь обе очереди и стену. Не повторяй тест.':'Партия сформирована: '+prepared.count+' из '+allowed.length+' подходящих записей на 20 дней.\n'+
     (prepared.count<all.length?'Размер автоматически уменьшен из-за объёма данных.\n':'')+
     'Вне этой партии: '+(allowed.length-prepared.count)+'.\n'+
     'Нажми «Скопировать содержимое», затем «Открыть GitHub». Вставь содержимое в описание заявки (Ctrl+V), затем Create. Дождись отчёта, проверь отложенные. '+
@@ -1120,10 +1125,13 @@ $('prepare').addEventListener('click',async()=>{
  }catch(e){
   status('submitStatus','Не удалось подготовить пакет: '+e.message+'. Ничего не опубликовано.');
  }finally{updateLivePreflightButtonOnly();}
-});
+}
+$('prepare').addEventListener('click',()=>preparePublication(false));
+$('directTest').addEventListener('click',()=>preparePublication(true));
 function updateLivePreflightButtonOnly(){
  const allowed=eligibleLivePosts().allowed;
  $('prepare').disabled=loading||!$('liveConsent').checked||!currentBranch?.code||!allowed.length;
+ $('directTest').disabled=loading||!$('liveConsent').checked||currentBranch?.code!=='BAMBOOK'||!allowed.length;
 }
 })();
 </script></body></html>
