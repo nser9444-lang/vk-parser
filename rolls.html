@@ -132,7 +132,7 @@ a{color:#086ab8}code{font-size:12px;background:#f5f8fc;padding:2px 5px}
 <span>Подтверждаю <b id="liveConsentText">отправку выбранного пакета</b>, с оформлением рубрики по предпросмотру, без изменения исходного отзыва и фото. Понимаю, что при публикации оригиналы сохраняются. После создания GitHub-заявки публикации могут быть запланированы автоматически.</span>
 </label>
 <div class="actions"><button id="prepare" disabled>Подготовить пакет</button><button id="directTest" disabled style="display:none">Тест: перенести одну запись без копии</button></div>
-<p id="directHint" class="hint" style="display:none">Только Бамбук: сервер выберет одну ещё не отправлявшуюся запись из свежего плана и передаст её ID и будущую дату в wall.post. Нет запасного копирования и удаления. После теста проверь предложенные, отложенные и стену.</p>
+<p id="directHint" class="hint" style="display:none">Бамбук и Суши Тайм Воронеж: сервер выберет одну ещё не отправлявшуюся запись из свежего плана и передаст её ID и будущую дату в wall.post. Нет запасного копирования и удаления. После теста проверь предложенные, отложенные и стену.</p>
 <div id="issueTransfer" style="display:none">
  <p class="hint">Скопируй содержимое заявки, открой закрытый GitHub, вставь его в поле описания (Body / Add a description), затем нажми Create. Заголовок должен заполниться автоматически.</p>
  <label for="issueTitle">Заголовок заявки (если GitHub не заполнил его)</label>
@@ -927,8 +927,8 @@ function updateLivePreflight(){
  clearIssueTransfer();
  refreshBranchHeading();
  const consent=$('liveConsent').checked;
- const bambook=currentBranch?.code==='BAMBOOK';
- $('directTest').style.display=bambook?'inline-block':'none';$('directHint').style.display=bambook?'block':'none';$('directTest').disabled=true;
+ const directAvailable=['BAMBOOK','VORONEZH'].includes(currentBranch?.code);
+ $('directTest').style.display=directAvailable?'inline-block':'none';$('directHint').style.display=directAvailable?'block':'none';$('directTest').disabled=true;
  if(loading){$('prepare').disabled=true;return;}
  if(!currentBranch?.code){
   status('livePreflight',currentBranch?'Для '+currentBranch.name+' доступен предпросмотр. Боевой режим ждёт подтверждения ID и отдельной настройки ключа.':'Выбери сообщество и загрузи его записи.');
@@ -949,7 +949,7 @@ function updateLivePreflight(){
    (authorWarning?'\n'+authorWarning:'')+
    '\nСервер проверит отдельный журнал '+currentBranch.name+'. Код 100 пропускается; неопределённый результат останавливает пакет.'+($('cleanupAfter').checked?'\nОчистка только после точной проверки.':'\nОригиналы сохраняются.'));
  $('prepare').disabled=!consent||!allowed.length;
- $('directTest').disabled=!bambook||!consent||!allowed.length;
+ $('directTest').disabled=!directAvailable||!consent||!allowed.length;
 }
 $('liveConsent').addEventListener('change',updateLivePreflight);
 $('fullMode').addEventListener('change',()=>{$('liveConsent').checked=false;updateLivePreflight();render();});
@@ -1072,7 +1072,7 @@ async function fitPublicationBatch(items,encode){
 async function preparePublication(direct=false){
  if(loading||!$('liveConsent').checked||!currentBranch?.code||!plan.length)return;
  const branch=currentBranch,sourceTime=loadedAt,full=$('fullMode').checked,cleanup=$('cleanupAfter').checked;
- if(direct&&(branch.code!=='BAMBOOK'||cleanup||!confirm('Бамбук: сделать ОДНУ попытку прямого переноса ранее не отправленной записи на будущую дату? Создания копии запасным способом и удаления не будет. Результат нужно проверить в ВК.')))return;
+ if(direct&&(!['BAMBOOK','VORONEZH'].includes(branch.code)||cleanup||!confirm(branch.name+': сделать ОДНУ попытку прямого переноса ранее не отправленной записи на будущую дату? Создания копии запасным способом и удаления не будет. Результат нужно проверить в ВК.')))return;
  $('prepare').disabled=true;$('directTest').disabled=true;clearIssueTransfer();
  try{
   const {allowed,blocked,duplicates,review}=eligibleLivePosts();
@@ -1102,7 +1102,7 @@ async function preparePublication(direct=false){
    const zipped=await makeIssuePayload(snapshot);
    if(zipped.length>47000)return null;
    const title='[ROLLS LIVE '+branch.code+'] '+(direct?'DIRECT TEST ':full?'ALL ':'')+'20 дней · '+snapshot.start_date+' · '+(direct?'1 попытка':posts.length+' записей');
-   const body=direct?'ПРЯМОЙ ТЕСТ Бамбук. Ровно одна попытка по одному новому ID из '+posts.length+' кандидатов. Дата будущая. Без копирования запасным способом и удаления.\n\nvk-rolls-live-gzip:'+zipped:'БОЕВОЙ ЗАПУСК. '+branch.name+' (club'+branch.id+'). Разрешена отправка '+(full?'очередной партии (до 200)':'до пяти')+' записей.\n'+
+   const body=direct?'ПРЯМОЙ ТЕСТ '+branch.name+'. Ровно одна попытка по одному новому ID из '+posts.length+' кандидатов. Дата будущая. Без копирования запасным способом и удаления.\n\nvk-rolls-live-gzip:'+zipped:'БОЕВОЙ ЗАПУСК. '+branch.name+' (club'+branch.id+'). Разрешена отправка '+(full?'очередной партии (до 200)':'до пяти')+' записей.\n'+
     'Оформление UGC v2 по предпросмотру без изменения исходного отзыва. Фотографии исходные. '+
     (cleanup?'Удалять только точно проверенные оригиналы.\n':'Оригинальные предложенные записи остаются на месте.\n')+
     'Снимок партии: '+posts.length+' записей; вне этой партии: '+(allowed.length-posts.length)+
@@ -1131,7 +1131,7 @@ $('directTest').addEventListener('click',()=>preparePublication(true));
 function updateLivePreflightButtonOnly(){
  const allowed=eligibleLivePosts().allowed;
  $('prepare').disabled=loading||!$('liveConsent').checked||!currentBranch?.code||!allowed.length;
- $('directTest').disabled=loading||!$('liveConsent').checked||currentBranch?.code!=='BAMBOOK'||!allowed.length;
+ $('directTest').disabled=loading||!$('liveConsent').checked||!['BAMBOOK','VORONEZH'].includes(currentBranch?.code)||!allowed.length;
 }
 })();
 </script></body></html>
