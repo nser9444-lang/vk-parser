@@ -117,22 +117,22 @@ a{color:#086ab8}code{font-size:12px;background:#f5f8fc;padding:2px 5px}
 <section class="panel" id="liveSection">
 <h2 id="liveHeading">4. Публикация — выбери сообщество</h2>
 <p>Предложенные новости → <b>новые отложенные записи</b> на 20 дней, время <b>10:00–20:00 МСК</b>. Используем отдельный ключ выбранного сообщества, без передачи пользовательского токена.</p>
-<div class="warning">Сохраняем исходный отзыв и фото. Добавляем оформление рубрики и согласованное авторство. Только фотографии выбранного сообщества либо записи без вложений. Для нового филиала сначала проверяем до пяти записей. ИИ-корректура пока отключена.</div>
+<div class="warning">Сохраняем исходный отзыв и фото. Добавляем оформление рубрики и согласованное авторство. Только фотографии выбранного сообщества либо записи без вложений. Для каждого филиала сначала проверяем перенос одной записи без копии. ИИ-корректура пока отключена.</div>
 <div id="livePreflight" class="status">Загрузи предложенные выбранного сообщества.</div>
 <label style="display:flex;gap:10px;align-items:flex-start;margin-top:14px">
 <input id="fullMode" type="checkbox" style="width:auto;margin-top:4px" disabled>
-<span>Первый пакет этого филиала уже проверен в ВК. Отправлять оставшиеся подходящие записи партиями до 200. Если галочка снята — до пяти.</span>
+<span>Прямой тест одной записи этого филиала уже выполнен. Переносить оставшиеся подходящие записи партиями до 200. Если галочка снята — до пяти.</span>
 </label>
 <label style="display:flex;gap:10px;align-items:flex-start;margin-top:14px">
 <input id="cleanupAfter" type="checkbox" style="width:auto;margin-top:4px" disabled>
-<span>Автоматическое удаление отключено. Для отдельной ручной команды используй кнопку ниже.</span>
+<span>Отдельное удаление отключено. ВК должен сам убрать предложенную запись при её одобрении.</span>
 </label>
 <label style="display:flex;gap:10px;align-items:flex-start;margin-top:14px">
 <input id="liveConsent" type="checkbox" style="width:auto;margin-top:4px">
-<span>Подтверждаю <b id="liveConsentText">отправку выбранного пакета</b>, с оформлением рубрики по предпросмотру, без изменения исходного отзыва и фото. Понимаю, что при публикации оригиналы сохраняются. После создания GitHub-заявки публикации могут быть запланированы автоматически.</span>
+<span>Подтверждаю <b id="liveConsentText">отправку выбранного пакета</b>, с оформлением рубрики по предпросмотру, без изменения исходного отзыва и фото. Понимаю, что ВК получит исходный ID записи и будущую дату; копии не создаём. После создания GitHub-заявки публикации могут быть запланированы автоматически.</span>
 </label>
 <div class="actions"><button id="prepare" disabled>Подготовить пакет</button><button id="directTest" disabled style="display:none">Тест: перенести одну запись без копии</button></div>
-<p id="directHint" class="hint" style="display:none">Бамбук и Суши Тайм Воронеж: сервер выберет одну ещё не отправлявшуюся запись из свежего плана и передаст её ID и будущую дату в wall.post. Нет запасного копирования и удаления. После теста проверь предложенные, отложенные и стену.</p>
+<p id="directHint" class="hint" style="display:none">Для каждого филиала: сервер выберет одну ещё не отправлявшуюся запись из свежего плана и передаст её ID и будущую дату в wall.post. Нет запасного копирования и удаления. После теста проверь предложенные, отложенные и стену.</p>
 <div id="issueTransfer" style="display:none">
  <p class="hint">Скопируй содержимое заявки, открой закрытый GitHub, вставь его в поле описания (Body / Add a description), затем нажми Create. Заголовок должен заполниться автоматически.</p>
  <label for="issueTitle">Заголовок заявки (если GitHub не заполнил его)</label>
@@ -142,8 +142,8 @@ a{color:#086ab8}code{font-size:12px;background:#f5f8fc;padding:2px 5px}
  <div class="actions"><button id="copyIssueBody">1. Скопировать содержимое</button><a id="issueLink" class="button" href="#" target="_blank" rel="noopener noreferrer">2. Открыть GitHub ↗</a></div>
  <div id="copyIssueStatus" class="status"></div>
 </div>
-<div class="actions"><button id="cleanupExisting" style="background:#b42318" disabled>Удалить все предложенные записи</button></div>
-<p class="hint">Отдельная ручная команда для выбранного филиала. Удаляет все предложенные на момент подтверждения, включая ещё не перенесённые отзывы и фото. Отложенные и опубликованные записи не являются целью удаления. Сначала закончи публикацию и проверь отложенные. Журнал GitHub не нужен. При ошибке ВК остановимся без автоповтора.</p>
+<div class="actions"><button id="cleanupExisting" style="display:none" disabled>Удаление отключено</button></div>
+<p class="hint">Отдельное удаление больше не используется. Если запись не перенеслась, не удаляй её до проверки.</p>
 <div id="cleanupStatus" class="status">Ручное удаление ещё не запускалось.</div>
 <div id="submitStatus" class="status">Записей ВК пока не изменяли. Подготовка заявки сама ничего не публикует.</div>
 <p class="hint">На закрытой странице GitHub вставь скопированное содержимое в описание заявки и нажми <b>Create</b>, чтобы запустить согласованный пакет из свежего плана. История отправок сохраняется в GitHub до каждого запроса: при повторном запуске тот же исходный ID повторно не отправляется. При коде 100 запись пропускается, остальные продолжаются. При неопределённом результате или другой ошибке сервер остановится.</p>
@@ -183,10 +183,10 @@ function refreshBranchHeading(){
  $('liveHeading').textContent='4. Публикация — '+(currentBranch?.name||'выбери сообщество');
  $('fullMode').disabled=!currentBranch?.code;
  $('cleanupAfter').disabled=true;$('cleanupAfter').checked=false;
- $('cleanupExisting').disabled=!currentBranch?.code||!loadedAt||loading;
- $('cleanupExisting').textContent='Удалить все предложенные'+(currentBranch?.code?' — '+currentBranch.name:'');
- $('liveConsentText').textContent=($('fullMode').checked?'отправку очередной партии подходящих записей ':'отправку до пяти записей ')+(currentBranch?.name||'выбранного сообщества');
- $('prepare').textContent=$('fullMode').checked?'Подготовить следующую партию':'Подготовить пакет — до 5 записей';
+ $('cleanupExisting').disabled=true;
+ $('cleanupExisting').textContent='Удаление отключено';
+ $('liveConsentText').textContent=($('fullMode').checked?'прямой перенос очередной партии подходящих записей ':'прямой перенос до пяти записей ')+(currentBranch?.name||'выбранного сообщества');
+ $('prepare').textContent=$('fullMode').checked?'Перенести предложенные — до 200':'Перенести предложенные — до 5';
 }
 const UGC={"captions":["🍣 Ваши заказы","📸 Кадр из вашей ленты","🧡 Суши Тайм глазами подписчиков","🍱 Что сегодня в кадре?","📸 Фото из предложенных","🍣 Делимся вашим фото","🧡 Рубрика «Ваши фотографии»","🍱 Роллы в кадре","📷 Фото от подписчиков","🍣 Время роллов","🧡 Ваши фото в нашей ленте","📸 Смотрим ваши фотографии","🍱 Сегодня в рубрике «Ваши заказы»","🍣 Кадр с роллами","📸 Из ваших предложенных новостей","🧡 Ваши кадры","🍣 Рубрика «Роллы в кадре»","📷 Фото для нашей ленты","🍱 Ваши заказы в фотографиях","🍣 Делимся кадром из предложенных","🧡 Суши Тайм в кадре","📸 Фотография из нашей рубрики","🍱 Сегодня делимся вашим кадром","🍣 Роллы глазами подписчиков","📷 Кадр дня","🧡 Рубрика «Суши Тайм глазами клиентов»","🍱 Ваши фотографии — в нашей ленте","🍣 Ещё один кадр из предложенных","📸 Ваши фото с роллами","🧡 Делимся фотографиями подписчиков"],"signatures":["📸 Автор записи: ","🧡 Запись от: ","📷 Фото и запись от: ","👤 Автор публикации: ","📸 Поделились с нами: ","🧡 Автор предложенной записи: "],"review":["не вкус","невкус","не свеж","несвеж","отрав","тошн","ужас","отврат","кошмар","разочар","претенз","жалоб","обман","груб","хам","опозд","не довез","не привез","не полож","верните","возврат","не рекоменд","не понрав","плох","волос","насеком","таракан","холодн","сырой","не доех","прогоркл","воня","просроч","плесен","не хват","не хватает","деньги назад","не совет","больше не","испорчен","недоволен","недоволь","позор","отстой","не работает","проблем","ошиб","задерж"],"ads":["реклама","промокод","розыгрыш","конкурс","скидка","акция","заработ","подписывай","партнерск","партнёрск","http://","https://","vk.com/","vk.ru/"],"cta":"🍣 Заказать роллы: https://vk.ru/app51776635_-222561013"};
 function editorialKind(p){
@@ -927,7 +927,7 @@ function updateLivePreflight(){
  clearIssueTransfer();
  refreshBranchHeading();
  const consent=$('liveConsent').checked;
- const directAvailable=['BAMBOOK','VORONEZH'].includes(currentBranch?.code);
+ const directAvailable=!!currentBranch?.code;
  $('directTest').style.display=directAvailable?'inline-block':'none';$('directHint').style.display=directAvailable?'block':'none';$('directTest').disabled=true;
  if(loading){$('prepare').disabled=true;return;}
  if(!currentBranch?.code){
@@ -947,7 +947,7 @@ function updateLivePreflight(){
    '\nВ следующей партии: до '+batchRows(allowed).length+' · авторских подписей: '+batchRows(allowed).filter(r=>getAuthor(r.post)).length+
    (allowed.length>batchRows(allowed).length?'\nОстальные подходящие записи: '+(allowed.length-batchRows(allowed).length)+'. После завершения партии обнови списки ВК и подготовь следующую.':'')+
    (authorWarning?'\n'+authorWarning:'')+
-   '\nСервер проверит отдельный журнал '+currentBranch.name+'. Код 100 пропускается; неопределённый результат останавливает пакет.'+($('cleanupAfter').checked?'\nОчистка только после точной проверки.':'\nОригиналы сохраняются.'));
+   '\nСервер проверит отдельный журнал '+currentBranch.name+'. Код 100 пропускается; неопределённый результат останавливает пакет.'+ '\nТолько прямой перенос по ID. Перед первым пакетом сервер проверит, что тестовый оригинал исчез из предложенных, а запись с возвращённым ID, датой и фото есть в отложенных.');
  $('prepare').disabled=!consent||!allowed.length;
  $('directTest').disabled=!directAvailable||!consent||!allowed.length;
 }
@@ -1001,6 +1001,7 @@ async function runManualDeletion(ids,read,erase,progress,pause){
  return done;
 }
 $('cleanupExisting').addEventListener('click',async()=>{
+ if($('cleanupExisting').disabled)return;
  const b=currentBranch,gid=groupId;
  if(!b?.code||b.id!==gid||!loadedAt||!token||loading)return;
  loading=true;
@@ -1072,7 +1073,7 @@ async function fitPublicationBatch(items,encode){
 async function preparePublication(direct=false){
  if(loading||!$('liveConsent').checked||!currentBranch?.code||!plan.length)return;
  const branch=currentBranch,sourceTime=loadedAt,full=$('fullMode').checked,cleanup=$('cleanupAfter').checked;
- if(direct&&(!['BAMBOOK','VORONEZH'].includes(branch.code)||cleanup||!confirm(branch.name+': сделать ОДНУ попытку прямого переноса ранее не отправленной записи на будущую дату? Создания копии запасным способом и удаления не будет. Результат нужно проверить в ВК.')))return;
+ if(direct&&(cleanup||!confirm(branch.name+': сделать ОДНУ попытку прямого переноса ранее не отправленной записи на будущую дату? Создания копии запасным способом и удаления не будет. Результат нужно проверить в ВК.')))return;
  $('prepare').disabled=true;$('directTest').disabled=true;clearIssueTransfer();
  try{
   const {allowed,blocked,duplicates,review}=eligibleLivePosts();
@@ -1093,18 +1094,19 @@ async function preparePublication(direct=false){
     }))
    };
   });
-  const base={kind:'rolls-live-v2',branch:branch.code,...(direct?{mode:'direct_test'}:full?{mode:'all_remaining'}:{}),editorial:'ugc_v2',cleanup_after:cleanup,author_consent:$('authorConsent').checked,group_id:branch.id,
-   days:20,start_hour:10,end_hour:20,start_date:$('startDate').value,captured_at:loadedAt};
+  const base={kind:'rolls-live-v2',branch:branch.code,mode:direct?'direct_test':full?'direct_all':'direct_batch',editorial:'ugc_v2',cleanup_after:cleanup,author_consent:$('authorConsent').checked,group_id:branch.id,
+   days:20,start_hour:10,end_hour:20,start_date:$('startDate').value,captured_at:loadedAt,
+   ...(!direct?{queue_evidence:{suggested_ids:suggests.map(p=>Number(p.id)),postponed:postponed.filter(p=>Number(p.owner_id)===-branch.id).map(p=>({id:Number(p.id),owner_id:Number(p.owner_id),date:Number(p.date),photo_ids:(p.attachments||[]).map(a=>a.type==='photo'?Number(a.photo?.id):null)}))}}:{})};
   status('submitStatus','Подбираем размер партии из '+allowed.length+' подходящих записей…');
   const prepared=await fitPublicationBatch(all,async posts=>{
    const snapshot={...base,preview_count:posts.length,posts};
    if(new TextEncoder().encode(JSON.stringify(snapshot)).length>220000)return null;
    const zipped=await makeIssuePayload(snapshot);
    if(zipped.length>47000)return null;
-   const title='[ROLLS LIVE '+branch.code+'] '+(direct?'DIRECT TEST ':full?'ALL ':'')+'20 дней · '+snapshot.start_date+' · '+(direct?'1 попытка':posts.length+' записей');
-   const body=direct?'ПРЯМОЙ ТЕСТ '+branch.name+'. Ровно одна попытка по одному новому ID из '+posts.length+' кандидатов. Дата будущая. Без копирования запасным способом и удаления.\n\nvk-rolls-live-gzip:'+zipped:'БОЕВОЙ ЗАПУСК. '+branch.name+' (club'+branch.id+'). Разрешена отправка '+(full?'очередной партии (до 200)':'до пяти')+' записей.\n'+
+   const title='[ROLLS LIVE '+branch.code+'] '+(direct?'DIRECT TEST ':full?'DIRECT ALL ':'DIRECT ')+'20 дней · '+snapshot.start_date+' · '+(direct?'1 попытка':posts.length+' записей');
+   const body=direct?'ПРЯМОЙ ТЕСТ '+branch.name+'. Ровно одна попытка по одному новому ID из '+posts.length+' кандидатов. Дата будущая. Без копирования запасным способом и удаления.\n\nvk-rolls-live-gzip:'+zipped:'ПРЯМОЙ ПЕРЕНОС. '+branch.name+' (club'+branch.id+'). Разрешена отправка '+(full?'очередной партии (до 200)':'до пяти')+' записей.\n'+
     'Оформление UGC v2 по предпросмотру без изменения исходного отзыва. Фотографии исходные. '+
-    (cleanup?'Удалять только точно проверенные оригиналы.\n':'Оригинальные предложенные записи остаются на месте.\n')+
+    'Каждый запрос содержит исходный post_id и будущую дату. Копирование и отдельное удаление отключены.\n'+
     'Снимок партии: '+posts.length+' записей; вне этой партии: '+(allowed.length-posts.length)+
     ', исключено по неподдерживаемым вложениям: '+blocked+', потенциальных дублей: '+duplicates+', ручная проверка: '+review+'.\n'+
     'Запуск только после Create в GitHub. Код 100 пропускается, неопределённый результат останавливает пакет.\n\n'+
@@ -1131,7 +1133,7 @@ $('directTest').addEventListener('click',()=>preparePublication(true));
 function updateLivePreflightButtonOnly(){
  const allowed=eligibleLivePosts().allowed;
  $('prepare').disabled=loading||!$('liveConsent').checked||!currentBranch?.code||!allowed.length;
- $('directTest').disabled=loading||!$('liveConsent').checked||!['BAMBOOK','VORONEZH'].includes(currentBranch?.code)||!allowed.length;
+ $('directTest').disabled=loading||!$('liveConsent').checked||!currentBranch?.code||!allowed.length;
 }
 })();
 </script></body></html>
