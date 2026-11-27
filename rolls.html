@@ -131,12 +131,21 @@ a{color:#086ab8}code{font-size:12px;background:#f5f8fc;padding:2px 5px}
 <input id="liveConsent" type="checkbox" style="width:auto;margin-top:4px">
 <span>Подтверждаю <b id="liveConsentText">отправку выбранного пакета</b>, с оформлением рубрики по предпросмотру, без изменения исходного отзыва и фото. Понимаю, что при публикации оригиналы сохраняются. После создания GitHub-заявки публикации могут быть запланированы автоматически.</span>
 </label>
-<div class="actions"><button id="prepare" disabled>Подготовить пакет</button><a id="issueLink" class="button" href="#" target="_blank" rel="noopener noreferrer" style="display:none">Подтвердить боевой запуск в GitHub ↗</a></div>
+<div class="actions"><button id="prepare" disabled>Подготовить пакет</button></div>
+<div id="issueTransfer" style="display:none">
+ <p class="hint">Скопируй содержимое заявки, открой закрытый GitHub, вставь его в поле описания (Body / Add a description), затем нажми Create. Заголовок должен заполниться автоматически.</p>
+ <label for="issueTitle">Заголовок заявки (если GitHub не заполнил его)</label>
+ <input id="issueTitle" type="text" readonly style="width:100%;box-sizing:border-box">
+ <label for="issueBody">Содержимое заявки — копировать полностью, не редактировать</label>
+ <textarea id="issueBody" readonly rows="4" style="width:100%;box-sizing:border-box;overflow-wrap:anywhere;font-family:monospace"></textarea>
+ <div class="actions"><button id="copyIssueBody">1. Скопировать содержимое</button><a id="issueLink" class="button" href="#" target="_blank" rel="noopener noreferrer">2. Открыть GitHub ↗</a></div>
+ <div id="copyIssueStatus" class="status"></div>
+</div>
 <div class="actions"><button id="cleanupExisting" style="background:#b42318" disabled>Удалить все предложенные записи</button></div>
 <p class="hint">Отдельная ручная команда для выбранного филиала. Удаляет все предложенные на момент подтверждения, включая ещё не перенесённые отзывы и фото. Отложенные и опубликованные записи не являются целью удаления. Сначала закончи публикацию и проверь отложенные. Журнал GitHub не нужен. При ошибке ВК остановимся без автоповтора.</p>
 <div id="cleanupStatus" class="status">Ручное удаление ещё не запускалось.</div>
 <div id="submitStatus" class="status">Записей ВК пока не изменяли. Подготовка заявки сама ничего не публикует.</div>
-<p class="hint">На закрытой странице GitHub нажми <b>Create</b>, чтобы запустить согласованный пакет из свежего плана. История отправок сохраняется в GitHub до каждого запроса: при повторном запуске тот же исходный ID повторно не отправляется. При коде 100 запись пропускается, остальные продолжаются. При неопределённом результате или другой ошибке сервер остановится.</p>
+<p class="hint">На закрытой странице GitHub вставь скопированное содержимое в описание заявки и нажми <b>Create</b>, чтобы запустить согласованный пакет из свежего плана. История отправок сохраняется в GitHub до каждого запроса: при повторном запуске тот же исходный ID повторно не отправляется. При коде 100 запись пропускается, остальные продолжаются. При неопределённом результате или другой ошибке сервер остановится.</p>
 </section>
 
 <div class="footer">Планировщик отделён от парсера авторов и автопубликации историй. Не изменяет другие разделы приложения.</div>
@@ -688,8 +697,37 @@ async function acquireToken(){
 }
 checkEnvironment();
 window.addEventListener('load',checkEnvironment);
+let preparedIssue=null;
+function clearIssueTransfer(){
+ preparedIssue=null;$('issueTransfer').style.display='none';
+ $('issueLink').removeAttribute('href');
+ $('issueTitle').value='';$('issueBody').value='';
+ status('copyIssueStatus','');
+}
+function freshIssueTransfer(){
+ return preparedIssue&&preparedIssue.branch===currentBranch&&preparedIssue.sourceTime===loadedAt&&
+  Math.floor(Date.now()/1000)-loadedAt<=15*60&&!loading&&$('liveConsent').checked&&
+  $('fullMode').checked===preparedIssue.full&&$('authorConsent').checked===preparedIssue.authorConsent&&
+  $('startDate').value===preparedIssue.startDate;
+}
+$('copyIssueBody').addEventListener('click',async()=>{
+ if(!freshIssueTransfer()){clearIssueTransfer();status('submitStatus','Пакет устарел или настройки изменились. Подготовь его заново.');return;}
+ const body=$('issueBody'),saved=preparedIssue;
+ let copied=false;
+ try{if(navigator.clipboard?.writeText){await navigator.clipboard.writeText(body.value);copied=true;}}catch{}
+ if(!copied&&preparedIssue===saved){
+  body.focus();body.select();body.setSelectionRange(0,body.value.length);
+  try{copied=document.execCommand('copy')===true;}catch{}
+ }
+ if(preparedIssue!==saved)return;
+ status('copyIssueStatus',copied?'Содержимое скопировано. Открой GitHub и вставь в описание заявки (Ctrl+V).':'Браузер не разрешил автоматическое копирование. Выдели всё содержимое поля (Ctrl+A), скопируй (Ctrl+C), затем вставь в GitHub.');
+});
+$('issueLink').addEventListener('click',event=>{
+ if(!freshIssueTransfer()){event.preventDefault();clearIssueTransfer();status('submitStatus','Пакет устарел или настройки изменились. Подготовь его заново.');}
+});
+$('issueTitle').addEventListener('click',()=>{$('issueTitle').select();});
 function resetPlan(){
- plan=[];$('liveConsent').checked=false;$('plannedCount').textContent='0';$('issueLink').style.display='none';
+ plan=[];$('liveConsent').checked=false;$('plannedCount').textContent='0';clearIssueTransfer();
  $('prepare').disabled=true;status('submitStatus','Пока ничего не отправлено.');
 }
 function esc(text){
@@ -885,7 +923,7 @@ function eligibleLivePosts(){
  return {allowed,blocked,duplicates,review};
 }
 function updateLivePreflight(){
- $('issueLink').style.display='none';
+ clearIssueTransfer();
  refreshBranchHeading();
  const consent=$('liveConsent').checked;
  if(loading){$('prepare').disabled=true;return;}
@@ -1008,14 +1046,20 @@ async function makeIssuePayload(items){
  const compressed=new Uint8Array(await new Response(stream).arrayBuffer());
  return bytesBase64(compressed);
 }
-// Keep each issue within the existing server count and URL limits.
+// Keep each issue within the existing server count and body limits.
 // Use a prefix so the server's UGC indices match the preview.
+function makeIssueTransfer(title,body){
+ if(body.length>60000)return null;
+ const url='https://github.com/nser9444-lang/vk-parser-data/issues/new?title='+encodeURIComponent(title);
+ if(url.length>1000)return null;
+ return {url,title,body};
+}
 async function fitPublicationBatch(items,encode){
  if(!items.length||items.length>FULL_BATCH_MAX)throw Error('Некорректный размер партии.');
  let count=items.length;
  while(count>0){
-  const url=await encode(items.slice(0,count));
-  if(url)return {count,url};
+  const transfer=await encode(items.slice(0,count));
+  if(transfer)return {count,...transfer};
   if(count===1)break;
   count=Math.max(1,Math.floor(count/2));
  }
@@ -1024,7 +1068,7 @@ async function fitPublicationBatch(items,encode){
 $('prepare').addEventListener('click',async()=>{
  if(loading||!$('liveConsent').checked||!currentBranch?.code||!plan.length)return;
  const branch=currentBranch,sourceTime=loadedAt,full=$('fullMode').checked,cleanup=$('cleanupAfter').checked;
- $('prepare').disabled=true;$('issueLink').style.display='none';
+ $('prepare').disabled=true;clearIssueTransfer();
  try{
   const {allowed,blocked,duplicates,review}=eligibleLivePosts();
   if(!allowed.length)throw Error('Не осталось подходящих записей с сохраняемыми оригинальными фото.');
@@ -1049,6 +1093,7 @@ $('prepare').addEventListener('click',async()=>{
   status('submitStatus','Подбираем размер партии из '+allowed.length+' подходящих записей…');
   const prepared=await fitPublicationBatch(all,async posts=>{
    const snapshot={...base,preview_count:posts.length,posts};
+   if(new TextEncoder().encode(JSON.stringify(snapshot)).length>220000)return null;
    const zipped=await makeIssuePayload(snapshot);
    if(zipped.length>47000)return null;
    const title='[ROLLS LIVE '+branch.code+'] '+(full?'ALL ':'')+'20 дней · '+snapshot.start_date+' · '+posts.length+' записей';
@@ -1059,16 +1104,17 @@ $('prepare').addEventListener('click',async()=>{
     ', исключено по неподдерживаемым вложениям: '+blocked+', потенциальных дублей: '+duplicates+', ручная проверка: '+review+'.\n'+
     'Запуск только после Create в GitHub. Код 100 пропускается, неопределённый результат останавливает пакет.\n\n'+
     'vk-rolls-live-gzip:'+zipped;
-   const url='https://github.com/nser9444-lang/vk-parser-data/issues/new?title='+encodeURIComponent(title)+'&body='+encodeURIComponent(body);
-   return url.length<=60000?url:null;
+   return makeIssueTransfer(title,body);
   });
   if(loading||currentBranch!==branch||loadedAt!==sourceTime||!$('liveConsent').checked||$('fullMode').checked!==full||$('cleanupAfter').checked!==cleanup||$('startDate').value!==base.start_date||$('authorConsent').checked!==base.author_consent)throw Error('Настройки изменились. Подготовь пакет заново.');
   if(Math.floor(Date.now()/1000)-sourceTime>15*60)throw Error('Список устарел. Обнови список.');
-  $('issueLink').href=prepared.url;$('issueLink').style.display='inline-block';
+  preparedIssue={branch,sourceTime,full,authorConsent:base.author_consent,startDate:base.start_date};
+  $('issueTitle').value=prepared.title;$('issueBody').value=prepared.body;
+  $('issueLink').href=prepared.url;$('issueTransfer').style.display='block';
   status('submitStatus','Партия сформирована: '+prepared.count+' из '+allowed.length+' подходящих записей на 20 дней.\n'+
     (prepared.count<all.length?'Размер автоматически уменьшен из-за объёма данных.\n':'')+
     'Вне этой партии: '+(allowed.length-prepared.count)+'.\n'+
-    'Нажми «Подтвердить боевой запуск в GitHub», затем Create. Дождись отчёта, проверь отложенные. '+
+    'Нажми «Скопировать содержимое», затем «Открыть GitHub». Вставь содержимое в описание заявки (Ctrl+V), затем Create. Дождись отчёта, проверь отложенные. '+
     (allowed.length>prepared.count?'Затем нажми «Обновить список», включи режим партий и подготовь следующую. Не запускай партии одновременно. ':'')+
     'Сервер пропустит уже учтённые ID. При ошибке автоматического повтора нет.');
  }catch(e){
