@@ -1,0 +1,44 @@
+name: Krasnodar approved creative formats
+on:
+  issues:
+    types: [opened]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  prepare:
+    if: github.event_name == 'workflow_dispatch' || (github.actor == 'nser9444-lang' && github.event.issue.title == '[KRD FORMATS] 21 approved squares')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: pip install Pillow
+      - name: Prepare all formats without cropping original artwork
+        run: |
+          python - <<'PY'
+          from PIL import Image, ImageOps, ImageFilter
+          import zipfile, io, pathlib, json, hashlib
+          out=pathlib.Path('krd-ready')
+          out.mkdir(exist_ok=True)
+          rows=[]
+          for i in range(1,4):
+              with zipfile.ZipFile(f'krd-originals-part-{i}.zip') as z:
+                  for n in sorted(z.namelist()):
+                      if not n.lower().endswith(('.png','.jpg','.jpeg','.webp')): continue
+                      raw=z.read(n)
+                      im=Image.open(io.BytesIO(raw)).convert('RGB')
+                      if im.width!=im.height: raise ValueError(n)
+                      folder=out/f'{len(rows)+1:02d}'
+                      folder.mkdir()
+                      for label,size in [('1x1',(1080,1080)),('4x5',(1080,1350)),('16x9',(1600,900)),('9x16',(1080,1920))]:
+                          bg=ImageOps.fit(im,size).filter(ImageFilter.GaussianBlur(65))
+                          fg=ImageOps.contain(im,size)
+                          bg.paste(fg,((size[0]-fg.width)//2,(size[1]-fg.height)//2))
+                          bg.save(folder/f'{label}.png')
+                      rows.append({'source':n,'sha256':hashlib.sha256(raw).hexdigest(),'folder':str(folder)})
+          assert len(rows)==21, rows
+          (out/'manifest.json').write_text(json.dumps(rows,ensure_ascii=False,indent=2))
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: krd-21-84-formats
+          path: krd-ready/
