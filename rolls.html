@@ -121,7 +121,7 @@ a{color:#086ab8}code{font-size:12px;background:#f5f8fc;padding:2px 5px}
 <div id="livePreflight" class="status">Загрузи предложенные выбранного сообщества.</div>
 <label style="display:flex;gap:10px;align-items:flex-start;margin-top:14px">
 <input id="fullMode" type="checkbox" style="width:auto;margin-top:4px" disabled>
-<span>Первый пакет этого филиала уже проверен в ВК. Отправить все оставшиеся подходящие записи (до 200). Если галочка снята — до пяти.</span>
+<span>Первый пакет этого филиала уже проверен в ВК. Отправлять оставшиеся подходящие записи партиями до 200. Если галочка снята — до пяти.</span>
 </label>
 <label style="display:flex;gap:10px;align-items:flex-start;margin-top:14px">
 <input id="cleanupAfter" type="checkbox" style="width:auto;margin-top:4px" disabled>
@@ -165,8 +165,9 @@ function selectedBranch(id,input){
  if(slug==='bambook_food')return null; // Incorrect resolved ID must never enable writes.
  return null;
 }
+const FULL_BATCH_MAX=200;
 function batchRows(allowed){
- return $('fullMode').checked?allowed:allowed.slice(0,5);
+ return allowed.slice(0,$('fullMode').checked?FULL_BATCH_MAX:5);
 }
 function refreshBranchHeading(){
  $('liveHeading').textContent='4. Публикация — '+(currentBranch?.name||'выбери сообщество');
@@ -174,8 +175,8 @@ function refreshBranchHeading(){
  $('cleanupAfter').disabled=true;$('cleanupAfter').checked=false;
  $('cleanupExisting').disabled=!currentBranch?.code||!loadedAt||loading;
  $('cleanupExisting').textContent='Удалить все предложенные'+(currentBranch?.code?' — '+currentBranch.name:'');
- $('liveConsentText').textContent=($('fullMode').checked?'отправку всех подходящих записей ':'отправку до пяти записей ')+(currentBranch?.name||'выбранного сообщества');
- $('prepare').textContent=$('fullMode').checked?'Подготовить все оставшиеся записи':'Подготовить пакет — до 5 записей';
+ $('liveConsentText').textContent=($('fullMode').checked?'отправку очередной партии подходящих записей ':'отправку до пяти записей ')+(currentBranch?.name||'выбранного сообщества');
+ $('prepare').textContent=$('fullMode').checked?'Подготовить следующую партию':'Подготовить пакет — до 5 записей';
 }
 const UGC={"captions":["🍣 Ваши заказы","📸 Кадр из вашей ленты","🧡 Суши Тайм глазами подписчиков","🍱 Что сегодня в кадре?","📸 Фото из предложенных","🍣 Делимся вашим фото","🧡 Рубрика «Ваши фотографии»","🍱 Роллы в кадре","📷 Фото от подписчиков","🍣 Время роллов","🧡 Ваши фото в нашей ленте","📸 Смотрим ваши фотографии","🍱 Сегодня в рубрике «Ваши заказы»","🍣 Кадр с роллами","📸 Из ваших предложенных новостей","🧡 Ваши кадры","🍣 Рубрика «Роллы в кадре»","📷 Фото для нашей ленты","🍱 Ваши заказы в фотографиях","🍣 Делимся кадром из предложенных","🧡 Суши Тайм в кадре","📸 Фотография из нашей рубрики","🍱 Сегодня делимся вашим кадром","🍣 Роллы глазами подписчиков","📷 Кадр дня","🧡 Рубрика «Суши Тайм глазами клиентов»","🍱 Ваши фотографии — в нашей ленте","🍣 Ещё один кадр из предложенных","📸 Ваши фото с роллами","🧡 Делимся фотографиями подписчиков"],"signatures":["📸 Автор записи: ","🧡 Запись от: ","📷 Фото и запись от: ","👤 Автор публикации: ","📸 Поделились с нами: ","🧡 Автор предложенной записи: "],"review":["не вкус","невкус","не свеж","несвеж","отрав","тошн","ужас","отврат","кошмар","разочар","претенз","жалоб","обман","груб","хам","опозд","не довез","не привез","не полож","верните","возврат","не рекоменд","не понрав","плох","волос","насеком","таракан","холодн","сырой","не доех","прогоркл","воня","просроч","плесен","не хват","не хватает","деньги назад","не совет","больше не","испорчен","недоволен","недоволь","позор","отстой","не работает","проблем","ошиб","задерж"],"ads":["реклама","промокод","розыгрыш","конкурс","скидка","акция","заработ","подписывай","партнерск","партнёрск","http://","https://","vk.com/","vk.ru/"],"cta":"🍣 Заказать роллы: https://vk.ru/app51776635_-222561013"};
 function editorialKind(p){
@@ -700,7 +701,7 @@ function render(){
  $('plannedCount').textContent=plan.length;
  if(!plan.length){$('list').innerHTML='<div class="empty">Нет записей для предпросмотра</div>';return;}
  const max=200;
- const indices=new Map(eligibleLivePosts().allowed.map((r,i)=>[r.post.id,i]));
+ const indices=new Map(batchRows(eligibleLivePosts().allowed).map((r,i)=>[r.post.id,i]));
  $('list').innerHTML=plan.slice(0,max).map((r,i)=>{
    const a=r.post.attachments||[];
    const attached=a.map(x=>x.type).join(', ');
@@ -712,7 +713,7 @@ function render(){
      +'<span class="chip">'+esc('№'+r.post.id+' · вложений: '+a.length)+'</span></div>'
      +'<div class="hint">'+esc(modeLabel)+'</div><p>'+esc(preview)+'</p>'
      +'<div class="hint">Вложения: '+esc(attached||'нет')+' · <a target="_blank" rel="noopener noreferrer" href="'+link+'">Открыть исходную запись</a></div></div>';
- }).join('')+(plan.length>max?'<div class="empty">Показаны первые 200 из '+plan.length+'. В обработку попадут все записи.</div>':'');
+ }).join('')+(plan.length>max?'<div class="empty">Показаны первые 200 из '+plan.length+'. Отправка идёт отдельными партиями.</div>':'');
 }
 async function api(method,params,canRetry=true){
  for(let attempt=0;attempt<(canRetry?4:1);attempt++){
@@ -902,7 +903,8 @@ function updateLivePreflight(){
    '\nНеподдерживаемые вложения/источники: '+blocked+
    '\nНа ручную проверку (по словам/признакам): '+review+
    '\nВозможно уже отложены (совпадение фотографий или текста без фото): '+duplicates+
-   '\nВ текущем пакете: '+batchRows(allowed).length+' · авторских подписей: '+batchRows(allowed).filter(r=>getAuthor(r.post)).length+
+   '\nВ следующей партии: до '+batchRows(allowed).length+' · авторских подписей: '+batchRows(allowed).filter(r=>getAuthor(r.post)).length+
+   (allowed.length>batchRows(allowed).length?'\nОстальные подходящие записи: '+(allowed.length-batchRows(allowed).length)+'. После завершения партии обнови списки ВК и подготовь следующую.':'')+
    (authorWarning?'\n'+authorWarning:'')+
    '\nСервер проверит отдельный журнал '+currentBranch.name+'. Код 100 пропускается; неопределённый результат останавливает пакет.'+($('cleanupAfter').checked?'\nОчистка только после точной проверки.':'\nОригиналы сохраняются.'));
  $('prepare').disabled=!consent||!allowed.length;
@@ -1006,6 +1008,19 @@ async function makeIssuePayload(items){
  const compressed=new Uint8Array(await new Response(stream).arrayBuffer());
  return bytesBase64(compressed);
 }
+// Keep each issue within the existing server count and URL limits.
+// Use a prefix so the server's UGC indices match the preview.
+async function fitPublicationBatch(items,encode){
+ if(!items.length||items.length>FULL_BATCH_MAX)throw Error('Некорректный размер партии.');
+ let count=items.length;
+ while(count>0){
+  const url=await encode(items.slice(0,count));
+  if(url)return {count,url};
+  if(count===1)break;
+  count=Math.max(1,Math.floor(count/2));
+ }
+ throw Error('Даже одна запись превышает допустимый размер заявки. Нужна ручная проверка.');
+}
 $('prepare').addEventListener('click',async()=>{
  if(loading||!$('liveConsent').checked||!currentBranch?.code||!plan.length)return;
  const branch=currentBranch,sourceTime=loadedAt,full=$('fullMode').checked,cleanup=$('cleanupAfter').checked;
@@ -1013,7 +1028,6 @@ $('prepare').addEventListener('click',async()=>{
  try{
   const {allowed,blocked,duplicates,review}=eligibleLivePosts();
   if(!allowed.length)throw Error('Не осталось подходящих записей с сохраняемыми оригинальными фото.');
-  if(full&&allowed.length>200)throw Error('Более 200 записей: требуется разделить объём.');
   const now=Math.floor(Date.now()/1000);
   if(!loadedAt||now-loadedAt>15*60)throw Error('Список устарел. Нажми «Обновить список» и повтори подготовку.');
   // One approved snapshot from the mini-app; no VK token or photo URLs in the Issue.
@@ -1030,29 +1044,33 @@ $('prepare').addEventListener('click',async()=>{
     }))
    };
   });
-  const snapshot={kind:'rolls-live-v2',branch:branch.code,...(full?{mode:'all_remaining'}:{}),editorial:'ugc_v2',cleanup_after:cleanup,author_consent:$('authorConsent').checked,group_id:branch.id,
-   days:20,start_hour:10,end_hour:20,start_date:$('startDate').value,
-   captured_at:loadedAt,preview_count:all.length,posts:all};
-  status('submitStatus','Упаковываем '+all.length+' записей в закрытую заявку GitHub. Токены и URL фотографий не передаём…');
-  const zipped=await makeIssuePayload(snapshot);
-  if(zipped.length>47000)throw Error('Данные слишком большие для одной заявки. Нужно уменьшить объём партии.');
-  if(loading||currentBranch!==branch||loadedAt!==sourceTime||!$('liveConsent').checked||$('fullMode').checked!==full||$('cleanupAfter').checked!==cleanup)throw Error('Настройки изменились. Подготовь пакет заново.');
-  const title='[ROLLS LIVE '+branch.code+'] '+(full?'ALL ':'')+'20 дней · '+snapshot.start_date+' · '+all.length+' записей';
-  const body='БОЕВОЙ ЗАПУСК. '+branch.name+' (club'+branch.id+'). Разрешена отправка '+(full?'всех подходящих (до 200)':'до пяти')+' записей.\n'+
+  const base={kind:'rolls-live-v2',branch:branch.code,...(full?{mode:'all_remaining'}:{}),editorial:'ugc_v2',cleanup_after:cleanup,author_consent:$('authorConsent').checked,group_id:branch.id,
+   days:20,start_hour:10,end_hour:20,start_date:$('startDate').value,captured_at:loadedAt};
+  status('submitStatus','Подбираем размер партии из '+allowed.length+' подходящих записей…');
+  const prepared=await fitPublicationBatch(all,async posts=>{
+   const snapshot={...base,preview_count:posts.length,posts};
+   const zipped=await makeIssuePayload(snapshot);
+   if(zipped.length>47000)return null;
+   const title='[ROLLS LIVE '+branch.code+'] '+(full?'ALL ':'')+'20 дней · '+snapshot.start_date+' · '+posts.length+' записей';
+   const body='БОЕВОЙ ЗАПУСК. '+branch.name+' (club'+branch.id+'). Разрешена отправка '+(full?'очередной партии (до 200)':'до пяти')+' записей.\n'+
     'Оформление UGC v2 по предпросмотру без изменения исходного отзыва. Фотографии исходные. '+
     (cleanup?'Удалять только точно проверенные оригиналы.\n':'Оригинальные предложенные записи остаются на месте.\n')+
-    'Полный снимок: '+all.length+' записей; исключено по неподдерживаемым вложениям: '+blocked+
-    ', потенциальных дублей: '+duplicates+', ручная проверка: '+review+'.\n'+
+    'Снимок партии: '+posts.length+' записей; вне этой партии: '+(allowed.length-posts.length)+
+    ', исключено по неподдерживаемым вложениям: '+blocked+', потенциальных дублей: '+duplicates+', ручная проверка: '+review+'.\n'+
     'Запуск только после Create в GitHub. Код 100 пропускается, неопределённый результат останавливает пакет.\n\n'+
     'vk-rolls-live-gzip:'+zipped;
-  const url='https://github.com/nser9444-lang/vk-parser-data/issues/new?title='+
-      encodeURIComponent(title)+'&body='+encodeURIComponent(body);
-  if(url.length>60000)throw Error('Слишком длинный адрес заявки: пакет требует разделения.');
-  $('issueLink').href=url;$('issueLink').style.display='inline-block';
-  status('submitStatus','Боевой пакет сформирован: '+all.length+' подходящих записей на 20 дней.\n'+
-    'Будут обработаны записи пакета, которых ещё нет в журнале этого филиала. Нажми «Подтвердить боевой запуск в GitHub», затем Create.\n'+
-    'После этого сервер может сразу создать отложенные публикации. '+
-    'При ошибке автоматически повторяться они не будут.');
+   const url='https://github.com/nser9444-lang/vk-parser-data/issues/new?title='+encodeURIComponent(title)+'&body='+encodeURIComponent(body);
+   return url.length<=60000?url:null;
+  });
+  if(loading||currentBranch!==branch||loadedAt!==sourceTime||!$('liveConsent').checked||$('fullMode').checked!==full||$('cleanupAfter').checked!==cleanup||$('startDate').value!==base.start_date||$('authorConsent').checked!==base.author_consent)throw Error('Настройки изменились. Подготовь пакет заново.');
+  if(Math.floor(Date.now()/1000)-sourceTime>15*60)throw Error('Список устарел. Обнови список.');
+  $('issueLink').href=prepared.url;$('issueLink').style.display='inline-block';
+  status('submitStatus','Партия сформирована: '+prepared.count+' из '+allowed.length+' подходящих записей на 20 дней.\n'+
+    (prepared.count<all.length?'Размер автоматически уменьшен из-за объёма данных.\n':'')+
+    'Вне этой партии: '+(allowed.length-prepared.count)+'.\n'+
+    'Нажми «Подтвердить боевой запуск в GitHub», затем Create. Дождись отчёта, проверь отложенные. '+
+    (allowed.length>prepared.count?'Затем нажми «Обновить список», включи режим партий и подготовь следующую. Не запускай партии одновременно. ':'')+
+    'Сервер пропустит уже учтённые ID. При ошибке автоматического повтора нет.');
  }catch(e){
   status('submitStatus','Не удалось подготовить пакет: '+e.message+'. Ничего не опубликовано.');
  }finally{updateLivePreflightButtonOnly();}
