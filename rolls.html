@@ -125,15 +125,17 @@ a{color:#086ab8}code{font-size:12px;background:#f5f8fc;padding:2px 5px}
 </label>
 <label style="display:flex;gap:10px;align-items:flex-start;margin-top:14px">
 <input id="cleanupAfter" type="checkbox" style="width:auto;margin-top:4px" disabled>
-<span>Удалять исходную предложенную запись только после точной серверной проверки отложенной копии и оригинала. Если ВК не даёт прочитать записи, оригиналы сохраняются.</span>
+<span>Серверная автоматическая очистка отключена: ВК запрещает чтение ключом сообщества. Используй проверочную очистку через права администратора ниже.</span>
 </label>
 <label style="display:flex;gap:10px;align-items:flex-start;margin-top:14px">
 <input id="liveConsent" type="checkbox" style="width:auto;margin-top:4px">
 <span>Подтверждаю <b id="liveConsentText">отправку выбранного пакета</b>, с оформлением рубрики по предпросмотру, без изменения исходного отзыва и фото. Понимаю, что оригиналы сохраняются, если не включена и не прошла точная проверка очистки. После создания GitHub-заявки публикации могут быть запланированы автоматически.</span>
 </label>
 <div class="actions"><button id="prepare" disabled>Подготовить пакет</button><a id="issueLink" class="button" href="#" target="_blank" rel="noopener noreferrer" style="display:none">Подтвердить боевой запуск в GitHub ↗</a></div>
-<div class="actions"><button id="cleanupExisting" disabled>Проверить и очистить уже перенесённые</button></div>
-<p class="hint">Отдельная очистка использует только пары ID из журнала выбранного филиала. Она не создаёт новые посты и не удаляет записи, которые не удалось точно проверить.</p>
+<div class="actions"><a id="cleanupLedger" target="_blank" rel="noopener noreferrer" style="display:none">Открыть журнал публикаций (JSON)</a><button id="cleanupExisting" disabled>Проверочная очистка через ВК</button></div>
+<input type="file" id="cleanupFile" accept=".json,application/json" hidden>
+<p class="hint">Скачай JSON-журнал выбранного филиала из закрытого GitHub (кнопка Download raw file), затем выбери его здесь. Приложение сравнит точные ID, тексты, фото, время и свежие списки ВК. Только после проверки и твоего отдельного подтверждения будет сделана одна пробная попытка убрать оригинал. Новые посты не создаются.</p>
+<div id="cleanupStatus" class="status">Очистка ещё не проверена через права администратора.</div>
 <div id="submitStatus" class="status">Записей ВК пока не изменяли. Подготовка заявки сама ничего не публикует.</div>
 <p class="hint">На закрытой странице GitHub нажми <b>Create</b>, чтобы запустить согласованный пакет из свежего плана. История отправок сохраняется в GitHub до каждого запроса: при повторном запуске тот же исходный ID повторно не отправляется. При коде 100 запись пропускается, остальные продолжаются. При неопределённом результате или другой ошибке сервер остановится.</p>
 </section>
@@ -155,13 +157,13 @@ const $=id=>document.getElementById(id);
 })();
 let token=null,groupId=null,groupName='',suggests=[],postponed=[],plan=[],loading=false,loadedAt=0;
 let authorProfiles=new Map(),authorWarning='',currentBranch=null;
-const BRANCHES={"OSKOL":{"id":222561013,"name":"Суши Тайм — Старый Оскол","brand":"Суши Тайм","slug":"sushitime_so","order":"https://vk.ru/app51776635_-222561013","code":"OSKOL"},"KRD":{"id":225522023,"name":"Дело в роллах — Краснодар","brand":"Дело в роллах","slug":"delovrolls","order":"https://vk.ru/app51917005_-225522023","code":"KRD"},"VORONEZH":{"id":202333296,"name":"Суши Тайм — Воронеж","brand":"Суши Тайм","slug":"sushitime36","order":"https://vk.ru/app7785654_-202333296?ref=group_menu","code":"VORONEZH"}};
+const BRANCHES={"OSKOL":{"id":222561013,"name":"Суши Тайм — Старый Оскол","brand":"Суши Тайм","slug":"sushitime_so","order":"https://vk.ru/app51776635_-222561013","code":"OSKOL"},"KRD":{"id":225522023,"name":"Дело в роллах — Краснодар","brand":"Дело в роллах","slug":"delovrolls","order":"https://vk.ru/app51917005_-225522023","code":"KRD"},"VORONEZH":{"id":202333296,"name":"Суши Тайм — Воронеж","brand":"Суши Тайм","slug":"sushitime36","order":"https://vk.ru/app7785654_-202333296?ref=group_menu","code":"VORONEZH"},"BAMBOOK":{"id":213945239,"name":"Бамбук Фуд — Воронеж","brand":"Бамбук Фуд","slug":"bambook_food","order":"","code":"BAMBOOK"}};
 const UGC_V2={"captions":["🧡 {brand} глазами клиентов","🍣 Ваши заказы — в нашей ленте!","📸 Делимся фотографиями наших подписчиков","🍱 Как выглядит ваш вечер с роллами?","😍 Роллы в кадре — делитесь и своими фото!","🧡 Спасибо, что делитесь с нами своими кадрами!","🍣 Рубрика «Ваши заказы»","📸 В объективе — ваши роллы","🍱 Что из этого выбрали бы вы?","🧡 {brand} глазами подписчиков","🍣 Время для любимых роллов","📸 Ваши фотографии — часть нашей истории","🍱 Кадр из вашей ленты","🍣 А какие роллы выбираете вы?","🧡 Делимся вашими фотографиями","📸 Рубрика «Роллы в кадре»","🍣 Ваши фото в нашей ленте","🍱 Какой ролл съели бы первым?","🧡 {brand} в кадре","📸 Спасибо за фотографии ваших заказов!","🍣 Ваши заказы в фотографиях","🍱 Сегодня делимся вашим кадром","🧡 Рубрика «Ваши фотографии»","📸 Кадр дня","🍣 Роллы глазами подписчиков","🍱 Ваши фотографии — наша любимая рубрика","🧡 Ещё один кадр от наших подписчиков","📸 Делитесь фотографиями своих заказов!","🍣 А что сегодня у вас на ужин?","🧡 Ваши кадры — в нашей ленте"],"review_captions":["🧡 Ваши отзывы","💬 Слово нашим клиентам","🍣 {brand} глазами клиентов","🧡 Спасибо, что делитесь обратной связью!","💬 Делимся вашим отзывом","🍱 Рубрика «Ваши отзывы»","🧡 Ваши впечатления","💬 Отзывы наших подписчиков","🍣 Ваши слова — в нашей ленте","🧡 Обратная связь от наших клиентов","💬 Что говорят наши подписчики","🍣 Делимся вашими впечатлениями"]};
 function selectedBranch(id,input){
  const known=Object.values(BRANCHES).find(b=>b.id===id);
  if(known)return known;
  const slug=String(input||'').trim().replace(/^https?:\/\/(?:m\.)?vk\.(?:ru|com)\//i,'').split(/[?#/]/)[0].toLowerCase();
- if(slug==='bambook_food')return {id,name:'Бамбук Фуд — Воронеж',brand:'Бамбук Фуд',order:'',code:null};
+ if(slug==='bambook_food')return null; // Incorrect resolved ID must never enable writes.
  return null;
 }
 function batchRows(allowed){
@@ -170,8 +172,11 @@ function batchRows(allowed){
 function refreshBranchHeading(){
  $('liveHeading').textContent='4. Публикация — '+(currentBranch?.name||'выбери сообщество');
  $('fullMode').disabled=!currentBranch?.code;
- $('cleanupAfter').disabled=!currentBranch?.code;
+ $('cleanupAfter').disabled=true;$('cleanupAfter').checked=false;
  $('cleanupExisting').disabled=!currentBranch?.code||!loadedAt||loading;
+ const link=$('cleanupLedger');
+ if(currentBranch?.code){link.href='https://github.com/nser9444-lang/vk-parser-data/blob/main/rolls_live/'+currentBranch.code.toLowerCase()+'_ledger.json';link.style.display='inline-block';}
+ else{link.removeAttribute('href');link.style.display='none';}
  $('liveConsentText').textContent=($('fullMode').checked?'отправку всех подходящих записей ':'отправку до пяти записей ')+(currentBranch?.name||'выбранного сообщества');
  $('prepare').textContent=$('fullMode').checked?'Подготовить все оставшиеся записи':'Подготовить пакет — до 5 записей';
 }
@@ -907,13 +912,71 @@ function updateLivePreflight(){
 $('liveConsent').addEventListener('change',updateLivePreflight);
 $('fullMode').addEventListener('change',()=>{$('liveConsent').checked=false;updateLivePreflight();render();});
 $('cleanupAfter').addEventListener('change',()=>{$('liveConsent').checked=false;updateLivePreflight();});
+// Receipt files are read locally; no user token, receipt, or private text is uploaded.
+async function cleanupHash(value){
+ const result=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(value));
+ return [...new Uint8Array(result)].map(x=>x.toString(16).padStart(2,'0')).join('');
+}
+function cleanupReceiptValid(key,e,gid){
+ return e&&e.status==='accepted_unverified'&&e.group_id===gid&&!e.cleanup_status&&
+  Number.isSafeInteger(e.source_post_id)&&e.source_post_id>0&&String(e.source_post_id)===key&&
+  Number.isSafeInteger(e.vk_post_id)&&e.vk_post_id>0&&e.vk_post_id!==e.source_post_id&&
+  Number.isSafeInteger(e.publish_date)&&e.publish_date>Math.floor(Date.now()/1000)+120&&
+  Number.isSafeInteger(e.photo_count)&&e.photo_count>=0&&e.photo_count<=10&&
+  Array.isArray(e.photo_ids)&&e.photo_ids.length===e.photo_count&&e.photo_ids.every(n=>Number.isSafeInteger(n)&&n>0)&&
+  typeof e.text_sha256==='string'&&/^[a-f0-9]{64}$/.test(e.text_sha256)&&
+  typeof (e.original_text_sha256??e.text_sha256)==='string'&&/^[a-f0-9]{64}$/.test(e.original_text_sha256??e.text_sha256);
+}
+async function cleanupMatches(post,e,original,gid){
+ if(!post||post.owner_id!==-gid||post.id!==(original?e.source_post_id:e.vk_post_id))return false;
+ // Membership in the freshly retrieved, separate suggests/postponed lists is required.
+ if(post.post_type&&post.post_type!==(original?'suggest':'postpone')&&post.post_type!=='post')return false;
+ if(!original&&post.date!==e.publish_date)return false;
+ const a=post.attachments??[];
+ if(!Array.isArray(a)||a.length!==e.photo_count||a.some((x,i)=>x.type!=='photo'||x.photo?.owner_id!==-gid||x.photo?.id!==e.photo_ids[i]))return false;
+ return typeof post.text==='string'&&await cleanupHash(post.text)===(original?(e.original_text_sha256??e.text_sha256):e.text_sha256);
+}
 $('cleanupExisting').addEventListener('click',()=>{
- const b=currentBranch;
- if(!b?.code||!loadedAt||loading)return;
- if(!confirm('Проверить и удалить только точно подтверждённые исходные предложенные записи: '+b.name+'? Новые посты не создаются. Непроверенные записи сохраняются.'))return;
- const url='https://github.com/nser9444-lang/vk-parser-data/issues/new?title='+encodeURIComponent('[ROLLS LIVE '+b.code+'] CLEANUP VERIFIED')+'&body='+encodeURIComponent('CONFIRM_DELETE_VERIFIED_ORIGINALS');
- $('issueLink').href=url;$('issueLink').style.display='inline-block';
- status('submitStatus','Подготовлена отдельная заявка очистки '+b.name+'. Нажми ссылку GitHub и Create. При отсутствии доступа к чтению ВК оригиналы не удаляются.');
+ if(!currentBranch?.code||!loadedAt||loading)return;
+ $('cleanupFile').value='';$('cleanupFile').click();
+});
+$('cleanupFile').addEventListener('change',async()=>{
+ const file=$('cleanupFile').files?.[0],b=currentBranch,gid=groupId;
+ if(!file||!b?.code||!loadedAt||loading)return;
+ loading=true;$('group').disabled=true;$('load').disabled=true;$('reload').disabled=true;$('calculate').disabled=true;$('prepare').disabled=true;$('liveConsent').checked=false;$('issueLink').style.display='none';refreshBranchHeading();
+ try{
+  if(file.size>2*1024*1024)throw Error('Слишком большой журнал.');
+  if(!globalThis.crypto?.subtle)throw Error('Нет безопасной проверки SHA-256 в этом браузере.');
+  const receipt=JSON.parse(await file.text());
+  if(!receipt||receipt.version!==1||!receipt.posts||Array.isArray(receipt.posts)||typeof receipt.posts!=='object')throw Error('Неверный формат журнала.');
+  const entries=Object.entries(receipt.posts);
+  if(!entries.length||entries.length>3000||entries.some(([,e])=>!e||e.group_id!==gid))throw Error('Журнал не соответствует выбранному филиалу или пуст.');
+  status('cleanupStatus','Проверяем свежие списки ВК для '+b.name+'…');
+  const srcList=await loadWall('suggests'),dstList=await loadWall('postponed');
+  const src=new Map(srcList.map(x=>[x.id,x])),dst=new Map(dstList.map(x=>[x.id,x]));
+  const valid=[];
+  for(const [key,e] of entries){
+   if(!cleanupReceiptValid(key,e,gid))continue;
+   if(await cleanupMatches(src.get(e.source_post_id),e,true,gid)&&await cleanupMatches(dst.get(e.vk_post_id),e,false,gid))valid.push(e);
+  }
+  status('cleanupStatus','Точно совпали '+valid.length+' пар. Остальные не трогаем. Новых постов нет.');
+  if(!valid.length)return;
+  const e=valid[0];
+  if(!confirm(b.name+': точно совпали '+valid.length+' пар. Удалить только ОДНУ исходную предложенную запись №'+e.source_post_id+'? Отложенная №'+e.vk_post_id+' останется.'))return;
+  // Refresh both lists AFTER confirmation; do not delete based on an old UI preview.
+  const freshSrc=await loadWall('suggests'),freshDst=await loadWall('postponed');
+  if(!cleanupReceiptValid(String(e.source_post_id),e,gid)||!await cleanupMatches(freshSrc.find(x=>x.id===e.source_post_id),e,true,gid)||!await cleanupMatches(freshDst.find(x=>x.id===e.vk_post_id),e,false,gid))throw Error('Записи изменились. Удаление отменено.');
+  status('cleanupStatus','Одна проверочная попытка удаления исходной №'+e.source_post_id+'…');
+  let response;
+  try{response=await api('wall.delete',{owner_id:-gid,post_id:e.source_post_id},false);}
+  catch(err){throw Error('Удаление не подтверждено: '+err.message+'. Автоповтора нет. Проверь предложенные вручную.');}
+  if(response!==1)throw Error('ВК не подтвердил удаление. Автоповтора нет.');
+  const afterSrc=await loadWall('suggests'),afterDst=await loadWall('postponed');
+  if(afterSrc.some(x=>x.id===e.source_post_id)||!await cleanupMatches(afterDst.find(x=>x.id===e.vk_post_id),e,false,gid))throw Error('ВК ответил успешно, но повторная сверка не подтверждена. Проверь вручную; повтор не выполнялся.');
+  status('cleanupStatus','Успешно: исходная №'+e.source_post_id+' исчезла, отложенная №'+e.vk_post_id+' сохранена. Проверь в ВК. Остальные не удаляли.');
+  suggests=afterSrc;postponed=afterDst;loadedAt=Math.floor(Date.now()/1000);resetPlan();render();
+ }catch(err){status('cleanupStatus','Остановка: '+err.message);}
+ finally{loading=false;$('group').disabled=false;$('load').disabled=false;$('reload').disabled=false;$('calculate').disabled=!suggests.length;updateLivePreflight();render();}
 });
 $('authorConsent').addEventListener('change',()=>{$('liveConsent').checked=false;updateLivePreflight();render();});
 function bytesBase64(bytes){
