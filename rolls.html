@@ -125,17 +125,16 @@ a{color:#086ab8}code{font-size:12px;background:#f5f8fc;padding:2px 5px}
 </label>
 <label style="display:flex;gap:10px;align-items:flex-start;margin-top:14px">
 <input id="cleanupAfter" type="checkbox" style="width:auto;margin-top:4px" disabled>
-<span>Серверная автоматическая очистка отключена: ВК запрещает чтение ключом сообщества. Используй проверочную очистку через права администратора ниже.</span>
+<span>Автоматическое удаление отключено. Для отдельной ручной команды используй кнопку ниже.</span>
 </label>
 <label style="display:flex;gap:10px;align-items:flex-start;margin-top:14px">
 <input id="liveConsent" type="checkbox" style="width:auto;margin-top:4px">
-<span>Подтверждаю <b id="liveConsentText">отправку выбранного пакета</b>, с оформлением рубрики по предпросмотру, без изменения исходного отзыва и фото. Понимаю, что оригиналы сохраняются, если не включена и не прошла точная проверка очистки. После создания GitHub-заявки публикации могут быть запланированы автоматически.</span>
+<span>Подтверждаю <b id="liveConsentText">отправку выбранного пакета</b>, с оформлением рубрики по предпросмотру, без изменения исходного отзыва и фото. Понимаю, что при публикации оригиналы сохраняются. После создания GitHub-заявки публикации могут быть запланированы автоматически.</span>
 </label>
 <div class="actions"><button id="prepare" disabled>Подготовить пакет</button><a id="issueLink" class="button" href="#" target="_blank" rel="noopener noreferrer" style="display:none">Подтвердить боевой запуск в GitHub ↗</a></div>
-<div class="actions"><a id="cleanupLedger" target="_blank" rel="noopener noreferrer" style="display:none">Открыть журнал публикаций (JSON)</a><button id="cleanupExisting" disabled>Проверочная очистка через ВК</button></div>
-<input type="file" id="cleanupFile" accept=".json,application/json" hidden>
-<p class="hint">Скачай JSON-журнал выбранного филиала из закрытого GitHub (кнопка Download raw file), затем выбери его здесь. Приложение сравнит точные ID, тексты, фото, время и свежие списки ВК. Только после проверки и твоего отдельного подтверждения будет сделана одна пробная попытка убрать оригинал. Новые посты не создаются.</p>
-<div id="cleanupStatus" class="status">Очистка ещё не проверена через права администратора.</div>
+<div class="actions"><button id="cleanupExisting" style="background:#b42318" disabled>Удалить все предложенные записи</button></div>
+<p class="hint">Отдельная ручная команда для выбранного филиала. Удаляет все предложенные на момент подтверждения, включая ещё не перенесённые отзывы и фото. Отложенные и опубликованные записи не являются целью удаления. Сначала закончи публикацию и проверь отложенные. Журнал GitHub не нужен. При ошибке ВК остановимся без автоповтора.</p>
+<div id="cleanupStatus" class="status">Ручное удаление ещё не запускалось.</div>
 <div id="submitStatus" class="status">Записей ВК пока не изменяли. Подготовка заявки сама ничего не публикует.</div>
 <p class="hint">На закрытой странице GitHub нажми <b>Create</b>, чтобы запустить согласованный пакет из свежего плана. История отправок сохраняется в GitHub до каждого запроса: при повторном запуске тот же исходный ID повторно не отправляется. При коде 100 запись пропускается, остальные продолжаются. При неопределённом результате или другой ошибке сервер остановится.</p>
 </section>
@@ -174,9 +173,7 @@ function refreshBranchHeading(){
  $('fullMode').disabled=!currentBranch?.code;
  $('cleanupAfter').disabled=true;$('cleanupAfter').checked=false;
  $('cleanupExisting').disabled=!currentBranch?.code||!loadedAt||loading;
- const link=$('cleanupLedger');
- if(currentBranch?.code){link.href='https://github.com/nser9444-lang/vk-parser-data/blob/main/rolls_live/'+currentBranch.code.toLowerCase()+'_ledger.json';link.style.display='inline-block';}
- else{link.removeAttribute('href');link.style.display='none';}
+ $('cleanupExisting').textContent='Удалить все предложенные'+(currentBranch?.code?' — '+currentBranch.name:'');
  $('liveConsentText').textContent=($('fullMode').checked?'отправку всех подходящих записей ':'отправку до пяти записей ')+(currentBranch?.name||'выбранного сообщества');
  $('prepare').textContent=$('fullMode').checked?'Подготовить все оставшиеся записи':'Подготовить пакет — до 5 записей';
 }
@@ -890,6 +887,7 @@ function updateLivePreflight(){
  $('issueLink').style.display='none';
  refreshBranchHeading();
  const consent=$('liveConsent').checked;
+ if(loading){$('prepare').disabled=true;return;}
  if(!currentBranch?.code){
   status('livePreflight',currentBranch?'Для '+currentBranch.name+' доступен предпросмотр. Боевой режим ждёт подтверждения ID и отдельной настройки ключа.':'Выбери сообщество и загрузи его записи.');
   $('prepare').disabled=true;return;
@@ -912,71 +910,85 @@ function updateLivePreflight(){
 $('liveConsent').addEventListener('change',updateLivePreflight);
 $('fullMode').addEventListener('change',()=>{$('liveConsent').checked=false;updateLivePreflight();render();});
 $('cleanupAfter').addEventListener('change',()=>{$('liveConsent').checked=false;updateLivePreflight();});
-// Receipt files are read locally; no user token, receipt, or private text is uploaded.
-async function cleanupHash(value){
- const result=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(value));
- return [...new Uint8Array(result)].map(x=>x.toString(16).padStart(2,'0')).join('');
+// Explicit, branch-scoped manual deletion. No GitHub receipts or server token.
+function manualSuggestedIds(items,gid){
+ if(!Array.isArray(items))throw Error('Нет списка предложенных.');
+ const ids=new Set();
+ for(const p of items){
+  if(!p||p.owner_id!==-gid||!Number.isSafeInteger(p.id)||p.id<=0||
+     (p.post_type&&p.post_type!=='suggest')||ids.has(p.id))
+   throw Error('В списке есть запись с неподтверждённым типом, владельцем или повторным ID. Удаление остановлено.');
+  ids.add(p.id);
+ }
+ return ids;
 }
-function cleanupReceiptValid(key,e,gid){
- return e&&e.status==='accepted_unverified'&&e.group_id===gid&&!e.cleanup_status&&
-  Number.isSafeInteger(e.source_post_id)&&e.source_post_id>0&&String(e.source_post_id)===key&&
-  Number.isSafeInteger(e.vk_post_id)&&e.vk_post_id>0&&e.vk_post_id!==e.source_post_id&&
-  Number.isSafeInteger(e.publish_date)&&e.publish_date>Math.floor(Date.now()/1000)+120&&
-  Number.isSafeInteger(e.photo_count)&&e.photo_count>=0&&e.photo_count<=10&&
-  Array.isArray(e.photo_ids)&&e.photo_ids.length===e.photo_count&&e.photo_ids.every(n=>Number.isSafeInteger(n)&&n>0)&&
-  typeof e.text_sha256==='string'&&/^[a-f0-9]{64}$/.test(e.text_sha256)&&
-  typeof (e.original_text_sha256??e.text_sha256)==='string'&&/^[a-f0-9]{64}$/.test(e.original_text_sha256??e.text_sha256);
+async function readManualSuggestions(gid){
+ let items=[],total=null;
+ do{
+  const r=await api('wall.get',{owner_id:-gid,filter:'suggests',count:100,offset:items.length});
+  if(!r||!Array.isArray(r.items)||!Number.isSafeInteger(r.count)||r.count<0||r.count>3000)
+   throw Error('ВК не вернул полный проверяемый список предложенных (до 3000).');
+  if(total===null)total=r.count;
+  if(r.count!==total||(!r.items.length&&items.length<total))throw Error('Список изменился при чтении. Запусти команду заново.');
+  items.push(...r.items);
+  if(items.length>total)throw Error('Некорректный размер списка ВК.');
+  if(items.length<total)await new Promise(r=>setTimeout(r,400));
+ }while(items.length<total);
+ manualSuggestedIds(items,gid);
+ return items;
 }
-async function cleanupMatches(post,e,original,gid){
- if(!post||post.owner_id!==-gid||post.id!==(original?e.source_post_id:e.vk_post_id))return false;
- // Membership in the freshly retrieved, separate suggests/postponed lists is required.
- if(post.post_type&&post.post_type!==(original?'suggest':'postpone')&&post.post_type!=='post')return false;
- if(!original&&post.date!==e.publish_date)return false;
- const a=post.attachments??[];
- if(!Array.isArray(a)||a.length!==e.photo_count||a.some((x,i)=>x.type!=='photo'||x.photo?.owner_id!==-gid||x.photo?.id!==e.photo_ids[i]))return false;
- return typeof post.text==='string'&&await cleanupHash(post.text)===(original?(e.original_text_sha256??e.text_sha256):e.text_sha256);
+async function runManualDeletion(ids,read,erase,progress,pause){
+ const confirmed=new Set(ids);
+ let current=await read();
+ if(current.size!==confirmed.size||ids.some(id=>!current.has(id)))
+  throw Error('Список изменился после подтверждения. Ничего не удалено.');
+ let done=0;
+ for(const id of ids){
+  if(!current.has(id))throw Error('Запись №'+id+' уже не в предложенных. Остановка.');
+  progress(done,id);
+  const response=await erase(id);
+  if(response!==1)throw Error('ВК не подтвердил удаление №'+id+'. Автоповтора нет.');
+  await pause();
+  current=await read();
+  if(current.has(id))throw Error('Запись №'+id+' всё ещё в предложенных. Автоповтора нет.');
+  done++;
+  progress(done,null);
+ }
+ return done;
 }
-$('cleanupExisting').addEventListener('click',()=>{
- if(!currentBranch?.code||!loadedAt||loading)return;
- $('cleanupFile').value='';$('cleanupFile').click();
-});
-$('cleanupFile').addEventListener('change',async()=>{
- const file=$('cleanupFile').files?.[0],b=currentBranch,gid=groupId;
- if(!file||!b?.code||!loadedAt||loading)return;
- loading=true;$('group').disabled=true;$('load').disabled=true;$('reload').disabled=true;$('calculate').disabled=true;$('prepare').disabled=true;$('liveConsent').checked=false;$('issueLink').style.display='none';refreshBranchHeading();
+$('cleanupExisting').addEventListener('click',async()=>{
+ const b=currentBranch,gid=groupId;
+ if(!b?.code||b.id!==gid||!loadedAt||!token||loading)return;
+ loading=true;
+ $('group').disabled=true;$('load').disabled=true;$('reload').disabled=true;
+ $('calculate').disabled=true;$('startDate').disabled=true;
+ $('liveConsent').checked=false;resetPlan();refreshBranchHeading();
+ let verified=0,attempted=null;
  try{
-  if(file.size>2*1024*1024)throw Error('Слишком большой журнал.');
-  if(!globalThis.crypto?.subtle)throw Error('Нет безопасной проверки SHA-256 в этом браузере.');
-  const receipt=JSON.parse(await file.text());
-  if(!receipt||receipt.version!==1||!receipt.posts||Array.isArray(receipt.posts)||typeof receipt.posts!=='object')throw Error('Неверный формат журнала.');
-  const entries=Object.entries(receipt.posts);
-  if(!entries.length||entries.length>3000||entries.some(([,e])=>!e||e.group_id!==gid))throw Error('Журнал не соответствует выбранному филиалу или пуст.');
-  status('cleanupStatus','Проверяем свежие списки ВК для '+b.name+'…');
-  const srcList=await loadWall('suggests'),dstList=await loadWall('postponed');
-  const src=new Map(srcList.map(x=>[x.id,x])),dst=new Map(dstList.map(x=>[x.id,x]));
-  const valid=[];
-  for(const [key,e] of entries){
-   if(!cleanupReceiptValid(key,e,gid))continue;
-   if(await cleanupMatches(src.get(e.source_post_id),e,true,gid)&&await cleanupMatches(dst.get(e.vk_post_id),e,false,gid))valid.push(e);
+  status('cleanupStatus','Получаем свежий список предложенных: '+b.name+'…');
+  const original=await readManualSuggestions(gid);
+  const ids=[...manualSuggestedIds(original,gid)];
+  if(!ids.length){status('cleanupStatus','Предложенных записей нет.');return;}
+  const scheduled=await loadWall('postponed');
+  if(scheduled.some(p=>ids.includes(p.id)))throw Error('ID предложенных и отложенных пересекаются. Ничего не удалено.');
+  if(!confirm(b.name+' (club'+gid+'). Удалить ВСЕ '+ids.length+' предложенных записей?\n\nБудут удалены и ещё не перенесённые отзывы и фотографии. Сначала проверь, что нужные записи уже отложены.\n\nЭто отдельная команда удаления. Отменить её автоматически нельзя.')){
+   status('cleanupStatus','Удаление отменено.');return;
   }
-  status('cleanupStatus','Точно совпали '+valid.length+' пар. Остальные не трогаем. Новых постов нет.');
-  if(!valid.length)return;
-  const e=valid[0];
-  if(!confirm(b.name+': точно совпали '+valid.length+' пар. Удалить только ОДНУ исходную предложенную запись №'+e.source_post_id+'? Отложенная №'+e.vk_post_id+' останется.'))return;
-  // Refresh both lists AFTER confirmation; do not delete based on an old UI preview.
-  const freshSrc=await loadWall('suggests'),freshDst=await loadWall('postponed');
-  if(!cleanupReceiptValid(String(e.source_post_id),e,gid)||!await cleanupMatches(freshSrc.find(x=>x.id===e.source_post_id),e,true,gid)||!await cleanupMatches(freshDst.find(x=>x.id===e.vk_post_id),e,false,gid))throw Error('Записи изменились. Удаление отменено.');
-  status('cleanupStatus','Одна проверочная попытка удаления исходной №'+e.source_post_id+'…');
-  let response;
-  try{response=await api('wall.delete',{owner_id:-gid,post_id:e.source_post_id},false);}
-  catch(err){throw Error('Удаление не подтверждено: '+err.message+'. Автоповтора нет. Проверь предложенные вручную.');}
-  if(response!==1)throw Error('ВК не подтвердил удаление. Автоповтора нет.');
-  const afterSrc=await loadWall('suggests'),afterDst=await loadWall('postponed');
-  if(afterSrc.some(x=>x.id===e.source_post_id)||!await cleanupMatches(afterDst.find(x=>x.id===e.vk_post_id),e,false,gid))throw Error('ВК ответил успешно, но повторная сверка не подтверждена. Проверь вручную; повтор не выполнялся.');
-  status('cleanupStatus','Успешно: исходная №'+e.source_post_id+' исчезла, отложенная №'+e.vk_post_id+' сохранена. Проверь в ВК. Остальные не удаляли.');
-  suggests=afterSrc;postponed=afterDst;loadedAt=Math.floor(Date.now()/1000);resetPlan();render();
- }catch(err){status('cleanupStatus','Остановка: '+err.message);}
- finally{loading=false;$('group').disabled=false;$('load').disabled=false;$('reload').disabled=false;$('calculate').disabled=!suggests.length;updateLivePreflight();render();}
+  const done=await runManualDeletion(ids,
+   async()=>manualSuggestedIds(await readManualSuggestions(gid),gid),
+   async id=>api('wall.delete',{owner_id:-gid,post_id:id},false),
+   (n,id)=>{verified=n;attempted=id;status('cleanupStatus',b.name+': подтверждено удалений '+n+' из '+ids.length+(id?' · проверяем №'+id:'')+'.');},
+   ()=>new Promise(r=>setTimeout(r,500)));
+  status('cleanupStatus',b.name+': подтверждено удаление '+done+' из '+ids.length+' записей. Новые предложенные, поступившие после подтверждения, не удалялись.');
+ }catch(err){
+  status('cleanupStatus','Остановка: '+err.message+' Подтверждено удалений: '+verified+(attempted!==null?'. Последняя попытка №'+attempted+' — результат проверь в ВК.':'')+'. Автоматического повтора нет.');
+ }finally{
+  try{suggests=await readManualSuggestions(gid);postponed=await loadWall('postponed');loadedAt=Math.floor(Date.now()/1000);
+   status('loadStatus',b.name+'\nПредложенных: '+suggests.length+', отложенных: '+postponed.length+'.');}
+  catch(err){loadedAt=0;suggests=[];postponed=[];status('loadStatus','Не удалось обновить списки: '+err.message+'. Загрузи записи заново.');}
+  loading=false;$('group').disabled=false;$('load').disabled=false;$('reload').disabled=false;$('startDate').disabled=false;
+  $('calculate').disabled=!suggests.length;resetPlan();testChoices();updateLivePreflight();render();
+ }
 });
 $('authorConsent').addEventListener('change',()=>{$('liveConsent').checked=false;updateLivePreflight();render();});
 function bytesBase64(bytes){
@@ -995,7 +1007,7 @@ async function makeIssuePayload(items){
  return bytesBase64(compressed);
 }
 $('prepare').addEventListener('click',async()=>{
- if(!$('liveConsent').checked||!currentBranch?.code||!plan.length)return;
+ if(loading||!$('liveConsent').checked||!currentBranch?.code||!plan.length)return;
  const branch=currentBranch,sourceTime=loadedAt,full=$('fullMode').checked,cleanup=$('cleanupAfter').checked;
  $('prepare').disabled=true;$('issueLink').style.display='none';
  try{
@@ -1024,7 +1036,7 @@ $('prepare').addEventListener('click',async()=>{
   status('submitStatus','Упаковываем '+all.length+' записей в закрытую заявку GitHub. Токены и URL фотографий не передаём…');
   const zipped=await makeIssuePayload(snapshot);
   if(zipped.length>47000)throw Error('Данные слишком большие для одной заявки. Нужно уменьшить объём партии.');
-  if(currentBranch!==branch||loadedAt!==sourceTime||!$('liveConsent').checked||$('fullMode').checked!==full||$('cleanupAfter').checked!==cleanup)throw Error('Настройки изменились. Подготовь пакет заново.');
+  if(loading||currentBranch!==branch||loadedAt!==sourceTime||!$('liveConsent').checked||$('fullMode').checked!==full||$('cleanupAfter').checked!==cleanup)throw Error('Настройки изменились. Подготовь пакет заново.');
   const title='[ROLLS LIVE '+branch.code+'] '+(full?'ALL ':'')+'20 дней · '+snapshot.start_date+' · '+all.length+' записей';
   const body='БОЕВОЙ ЗАПУСК. '+branch.name+' (club'+branch.id+'). Разрешена отправка '+(full?'всех подходящих (до 200)':'до пяти')+' записей.\n'+
     'Оформление UGC v2 по предпросмотру без изменения исходного отзыва. Фотографии исходные. '+
@@ -1047,7 +1059,7 @@ $('prepare').addEventListener('click',async()=>{
 });
 function updateLivePreflightButtonOnly(){
  const allowed=eligibleLivePosts().allowed;
- $('prepare').disabled=!$('liveConsent').checked||!currentBranch?.code||!allowed.length;
+ $('prepare').disabled=loading||!$('liveConsent').checked||!currentBranch?.code||!allowed.length;
 }
 })();
 </script></body></html>
