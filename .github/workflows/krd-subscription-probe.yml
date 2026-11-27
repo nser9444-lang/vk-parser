@@ -1,0 +1,36 @@
+name: Krasnodar subscription import preflight
+on:
+  issues:
+    types: [opened]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  inspect:
+    if: github.event_name == 'workflow_dispatch' || (github.actor == 'nser9444-lang' && github.event.issue.title == '[KRD PREFLIGHT] subscription schema')
+    runs-on: ubuntu-latest
+    env:
+      VK_ADS_ACCESS_TOKEN: ${{ secrets.VK_ADS_TOKEN_DELO_V_ROLLAH }}
+    steps:
+      - uses: actions/checkout@v4
+      - run: pip install -r vk_ads_bridge/requirements.txt
+      - run: |
+          python - <<'PY'
+          from vk_ads_bridge.cli import VKAds
+          import json,time
+          api=VKAds()
+          target=43849504
+          groups=[170815173,170815176,170815175,170815177,170815178,170815179,170815181]
+          p=api.request("GET",f"/api/v2/ad_plans/{target}.json",params={"fields":"id,status,name"})
+          assert p["id"]==target
+          print("CAMPAIGN",json.dumps(p,ensure_ascii=False))
+          for g in groups:
+              time.sleep(2)
+              group=api.ad_group(g)
+              assert group["ad_plan_id"]==target
+              print("GROUP",json.dumps(group,ensure_ascii=False))
+              time.sleep(2)
+              data=api.request("GET","/api/v2/banners.json",params={"_campaign_id":str(g),"fields":"id,name,status,ad_group_id,content,textblocks,urls","limit":20})
+              for b in data.get("items",[]):
+                  print("TEMPLATE",json.dumps(b,ensure_ascii=False))
+          PY
